@@ -1,7 +1,7 @@
 <template>
   <article
     :class="layout"
-    class="relative group flex max-w-full md:max-w-[256px] border p-5 rounded-lg flex-col gap-5 transition border-color duration-200"
+    class="relative group flex max-w-full md:max-w-[256px] border p-5 rounded-lg flex-col gap-5"
     data-testid="artist-album-card"
     draggable="true"
     tabindex="0"
@@ -52,7 +52,7 @@ const onContextMenu = (e: MouseEvent) => emit('contextmenu', e)
 
 <style lang="postcss" scoped>
 article {
-  @apply bg-k-bg-secondary border border-k-border hover:border-white/15;
+  @apply bg-k-fg-5 border border-k-fg-10 hover:border-white/15;
 
   &.full {
     :deep(.play-icon) {
@@ -62,17 +62,17 @@ article {
 
   .name {
     &:deep(a) {
-      @apply overflow-hidden text-ellipsis text-k-text-primary;
+      @apply overflow-hidden text-ellipsis text-k-fg;
 
       &:is(:hover, :active, :focus) {
-        @apply text-k-accent;
+        @apply text-k-highlight;
       }
     }
   }
 
   &:focus,
   &:focus-within {
-    @apply ring-1 ring-k-accent;
+    @apply ring-1 ring-k-highlight;
   }
 
   &.compact {
@@ -89,7 +89,7 @@ article {
       & + a,
       & + button {
         &::before {
-          @apply mr-0.5 content-['•'] text-k-text-secondary;
+          @apply mr-0.5 content-['•'];
         }
       }
 

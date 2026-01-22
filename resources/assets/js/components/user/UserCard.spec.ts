@@ -1,100 +1,46 @@
-import Router from '@/router'
-import { describe, expect, it } from 'vitest'
+import type { Mock } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/vue'
 import { createHarness } from '@/__tests__/TestHarness'
-import factory from '@/__tests__/factory'
-import { eventBus } from '@/utils/eventBus'
-import { userStore } from '@/stores/userStore'
-import { DialogBoxStub } from '@/__tests__/stubs'
-import { invitationService } from '@/services/invitationService'
+import { useContextMenu } from '@/composables/useContextMenu'
 import Component from './UserCard.vue'
+import { assertOpenContextMenu } from '@/__tests__/assertions'
+import UserContextMenu from '@/components/user/UserContextMenu.vue'
 
 describe('userCard.vue', () => {
   const h = createHarness()
 
-  const renderComponent = (user: User) => {
-    return h.render(Component, {
+  const renderComponent = (user?: User) => {
+    user = user ?? h.factory('user')
+
+    const rendered = h.render(Component, {
       props: {
         user,
       },
     })
+
+    return {
+      ...rendered,
+      user,
+    }
   }
 
   it('has different behaviors for current user', () => {
-    const user = h.factory('user')
-    h.be(user)
+    const user = h.factory.states('current')('user') as CurrentUser
+    h.actingAsUser(user)
     renderComponent(user)
 
     screen.getByTitle('This is you!')
-    screen.getByText('Your Profile')
+    expect(screen.getByText('Your Profile').getAttribute('href')).toBe('/#/profile')
+    expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull()
   })
 
-  it('edits user', async () => {
-    const user = h.factory('user')
-    const emitMock = h.mock(eventBus, 'emit')
-    renderComponent(user)
+  it('requests the context menu', async () => {
+    vi.mock('@/composables/useContextMenu')
+    const { openContextMenu } = useContextMenu()
+    const { user } = renderComponent()
 
-    await h.user.click(screen.getByRole('button', { name: 'Edit' }))
-
-    expect(emitMock).toHaveBeenCalledWith('MODAL_SHOW_EDIT_USER_FORM', user)
-  })
-
-  it('redirects to Profile screen if edit current user', async () => {
-    const mock = h.mock(Router, 'go')
-    const user = h.factory('user')
-    h.be(user)
-    renderComponent(user)
-
-    await h.user.click(screen.getByRole('button', { name: 'Your Profile' }))
-
-    expect(mock).toHaveBeenCalledWith('/#/profile')
-  })
-
-  it('deletes user if confirmed', async () => {
-    h.mock(DialogBoxStub.value, 'confirm').mockResolvedValue(true)
-    const user = h.factory('user')
-    h.beAdmin()
-    renderComponent(user)
-    const destroyMock = h.mock(userStore, 'destroy')
-
-    await h.user.click(screen.getByRole('button', { name: 'Delete' }))
-
-    expect(destroyMock).toHaveBeenCalledWith(user)
-  })
-
-  it('does not delete user if not confirmed', async () => {
-    h.mock(DialogBoxStub.value, 'confirm').mockResolvedValue(false)
-    const user = h.factory('user')
-    h.beAdmin()
-    renderComponent(user)
-    const destroyMock = h.mock(userStore, 'destroy')
-
-    await h.user.click(screen.getByRole('button', { name: 'Delete' }))
-
-    expect(destroyMock).not.toHaveBeenCalled()
-  })
-
-  it('revokes invite for prospects', async () => {
-    h.mock(DialogBoxStub.value, 'confirm').mockResolvedValue(true)
-    const prospect = factory.states('prospect')('user')
-    h.beAdmin()
-    renderComponent(prospect)
-    const revokeMock = h.mock(invitationService, 'revoke')
-
-    await h.user.click(screen.getByRole('button', { name: 'Revoke' }))
-
-    expect(revokeMock).toHaveBeenCalledWith(prospect)
-  })
-
-  it('does not revoke invite for prospects if not confirmed', async () => {
-    h.mock(DialogBoxStub.value, 'confirm').mockResolvedValue(false)
-    const prospect = factory.states('prospect')('user')
-    h.beAdmin()
-    renderComponent(prospect)
-    const revokeMock = h.mock(invitationService, 'revoke')
-
-    await h.user.click(screen.getByRole('button', { name: 'Revoke' }))
-
-    expect(revokeMock).not.toHaveBeenCalled()
+    await h.user.click(screen.getByRole('button', { name: 'More Actions' }))
+    await assertOpenContextMenu(openContextMenu as Mock, UserContextMenu, { user })
   })
 })

@@ -8,7 +8,7 @@
   >
     <span class="flex-1">{{ track.title }}</span>
     <AppleMusicButton v-if="useAppleMusic && !matchedSong" :url="iTunesUrl" />
-    <span class="w-14 text-right opacity-50">{{ fmtLength }}</span>
+    <span class="w-14 text-right text-k-fg-50">{{ fmtLength }}</span>
   </div>
 </template>
 
@@ -56,7 +56,7 @@ const play = () => matchedSong.value && playback().play(matchedSong.value)
   }
 
   &.available {
-    @apply cursor-pointer text-k-text-primary;
+    @apply cursor-pointer text-k-fg;
 
     &:hover {
       @apply text-k-highlight;

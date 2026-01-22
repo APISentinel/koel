@@ -3,7 +3,7 @@
     <form
       v-if="userProspect"
       autocomplete="off"
-      class="w-full sm:w-[320px] p-7 sm:bg-white/10 rounded-lg flex flex-col space-y-5"
+      class="w-full sm:w-[320px] p-7 sm:bg-k-fg-10 rounded-lg flex flex-col space-y-5"
       @submit.prevent="submit"
     >
       <header class="mb-4">
@@ -36,8 +36,6 @@
         <Btn :disabled="loading" data-testid="submit" type="submit">Accept &amp; Log In</Btn>
       </FormRow>
     </form>
-
-    <p v-if="!validToken">Invalid or expired invite.</p>
   </div>
 </template>
 
@@ -58,7 +56,6 @@ const { handleHttpError } = useErrorHandler('dialog')
 const name = ref('')
 const password = ref('')
 const userProspect = ref<User>()
-const validToken = ref(true)
 const loading = ref(false)
 
 const token = String(getRouteParam('token')!)
@@ -79,7 +76,7 @@ onMounted(async () => {
   try {
     userProspect.value = await invitationService.getUserProspect(token)
   } catch (error: unknown) {
-    handleHttpError(error, { 404: () => (validToken.value = false) })
+    handleHttpError(error, { 404: 'Invalid or expired invite.' })
   }
 })
 </script>

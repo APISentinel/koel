@@ -3,7 +3,7 @@ import { screen } from '@testing-library/vue'
 import { createHarness } from '@/__tests__/TestHarness'
 import { eventBus } from '@/utils/eventBus'
 import { playbackService } from '@/services/RadioPlaybackService'
-import { resourcePermissionService } from '@/services/resourcePermissionService'
+import { acl } from '@/services/acl'
 import { radioStationStore } from '@/stores/radioStationStore'
 import Component from './RadioStationContextMenu.vue'
 
@@ -11,14 +11,17 @@ describe('radioStationContextMenu.vue', () => {
   const h = createHarness()
 
   const renderComponent = async (station?: RadioStation, manageable = true) => {
-    h.mock(resourcePermissionService, 'check').mockReturnValue(manageable)
+    h.mock(acl, 'checkResourcePermission').mockReturnValue(manageable)
 
     station = station || h.factory('radio-station', {
       favorite: false,
     })
 
-    const rendered = h.render(Component)
-    eventBus.emit('RADIO_STATION_CONTEXT_MENU_REQUESTED', { pageX: 420, pageY: 42 } as MouseEvent, station)
+    const rendered = h.render(Component, {
+      props: {
+        station,
+      },
+    })
 
     // For all menu items (including Delete and Edit, which require permission checks) to be rendered
     await h.tick(7)

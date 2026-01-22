@@ -8,7 +8,7 @@
             <Btn
               v-koel-tooltip
               :title="preferences.albums_favorites_only ? 'Show all' : 'Show favorites only'"
-              class="border border-white/10"
+              class="border border-k-fg-10"
               transparent
               @click.prevent="toggleFavoritesOnly"
             >
@@ -35,8 +35,8 @@
         <Icon :icon="faCompactDisc" />
       </template>
       No albums found.
-      <span class="secondary block">
-        {{ isAdmin ? 'Have you set up your library yet?' : 'Contact your administrator to set up your library.' }}
+      <span v-if="currentUserCan.manageSettings()" class="secondary block">
+        Have you set up your library yet?
       </span>
     </ScreenEmptyState>
 
@@ -69,7 +69,7 @@ import { commonStore } from '@/stores/commonStore'
 import { preferenceStore as preferences } from '@/stores/preferenceStore'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
-import { useAuthorization } from '@/composables/useAuthorization'
+import { usePolicies } from '@/composables/usePolicies'
 
 import AlbumCard from '@/components/album/AlbumCard.vue'
 import AlbumCardSkeleton from '@/components/ui/album-artist/ArtistAlbumCardSkeleton.vue'
@@ -81,7 +81,7 @@ import GridListView from '@/components/ui/GridListView.vue'
 import AlbumListSorter from '@/components/album/AlbumListSorter.vue'
 import Btn from '@/components/ui/form/Btn.vue'
 
-const { isAdmin } = useAuthorization()
+const { currentUserCan } = usePolicies()
 
 const gridContainer = ref<HTMLDivElement>()
 const grid = ref<InstanceType<typeof GridListView>>()

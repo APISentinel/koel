@@ -5,19 +5,20 @@ namespace Tests;
 use App\Facades\License;
 use App\Helpers\Ulid;
 use App\Helpers\Uuid;
+use App\Models\Album;
 use App\Services\License\CommunityLicenseService;
 use App\Services\MediaBrowser;
-use DMS\PHPUnitExtensions\ArraySubset\ArraySubsetAsserts;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\File;
+use Tests\Concerns\AssertsArraySubset;
 use Tests\Concerns\CreatesApplication;
 use Tests\Concerns\MakesHttpRequests;
 
 abstract class TestCase extends BaseTestCase
 {
-    use ArraySubsetAsserts;
+    use AssertsArraySubset;
     use CreatesApplication;
     use LazilyRefreshDatabase;
     use MakesHttpRequests;
@@ -35,6 +36,10 @@ abstract class TestCase extends BaseTestCase
 
         License::swap($this->app->make(CommunityLicenseService::class));
         $this->fileSystem = File::getFacadeRoot();
+
+        // During the Album's `saved` event, we attempt to generate a thumbnail by dispatching a job.
+        // Disable this to avoid noise and side effects.
+        Album::getEventDispatcher()?->forget('eloquent.saved: ' . Album::class);
 
         self::createSandbox();
     }

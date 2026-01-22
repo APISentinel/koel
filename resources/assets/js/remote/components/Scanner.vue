@@ -1,14 +1,14 @@
 <template>
-  <div class="flex flex-col items-center justify-center flex-1 relative h-screen gap-4 text-k-text-secondary">
+  <div class="flex flex-col items-center justify-center flex-1 relative h-screen gap-4">
     <template v-if="!maxRetriesReached">
       <span class="relative flex h-5 aspect-square">
         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-k-highlight opacity-75" />
         <span class="relative inline-flex rounded-full h-5 aspect-square bg-k-highlight opacity-70" />
       </span>
-      <p>Scanning for an active Koel instance…</p>
+      <p>Scanning for an active {{ appName }} instance…</p>
     </template>
     <p v-else>
-      No active Koel instance found.
+      No active {{ appName }} instance found.
       <a class="text-k-highlight ml-1" @click.prevent="rescan">Rescan</a>
     </p>
   </div>
@@ -17,6 +17,9 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from 'vue'
 import { socketService } from '@/services/socketService'
+import { useBranding } from '@/composables/useBranding'
+
+const { name: appName } = useBranding()
 
 const MAX_RETRIES = 10
 const connected = ref(false)

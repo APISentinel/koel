@@ -1,5 +1,6 @@
 import { screen, waitFor } from '@testing-library/vue'
-import { describe, expect, it } from 'vitest'
+import type { Mock } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createHarness } from '@/__tests__/TestHarness'
 import { podcastStore } from '@/stores/podcastStore'
 import { playableStore as episodeStore } from '@/stores/playableStore'
@@ -7,6 +8,9 @@ import { playbackService } from '@/services/QueuePlaybackService'
 import { queueStore } from '@/stores/queueStore'
 import Router from '@/router'
 import { eventBus } from '@/utils/eventBus'
+import { useContextMenu } from '@/composables/useContextMenu'
+import { assertOpenContextMenu } from '@/__tests__/assertions'
+import PodcastContextMenu from '@/components/podcast/PodcastContextMenu.vue'
 import Component from './PodcastScreen.vue'
 
 describe('podcastScreen.vue', () => {
@@ -23,6 +27,8 @@ describe('podcastScreen.vue', () => {
     const resolvePodcastMock = h.mock(podcastStore, 'resolve').mockResolvedValue(podcast)
     const fetchEpisodesMock = h.mock(episodeStore, 'fetchEpisodesInPodcast').mockResolvedValue(episodes)
 
+    h.visit(`podcasts/${podcast.id}`)
+
     const rendered = h.render(Component, {
       global: {
         stubs: {
@@ -32,8 +38,9 @@ describe('podcastScreen.vue', () => {
       },
     })
 
-    await h.router.activateRoute({ path: `podcasts/${podcast.id}`, screen: 'Podcast' }, {
-      id: podcast.id,
+    await waitFor(() => {
+      expect(resolvePodcastMock).toHaveBeenCalledWith(podcast.id)
+      expect(fetchEpisodesMock).toHaveBeenCalledWith(podcast.id)
     })
 
     await h.tick()
@@ -87,15 +94,15 @@ describe('podcastScreen.vue', () => {
 
     const playMock = h.mock(playbackService, 'play')
 
-    const { podcast, episodes } = await renderComponent()
+    const podcast = h.factory('podcast')
+    const episodes = h.factory('episode', 2, { podcast_id: podcast.id })
     podcast.state.current_episode = episodes[0].id
     podcast.state.progresses = {
       [episodes[0].id]: 123,
       [episodes[1].id]: 456,
     }
 
-    await h.tick()
-
+    await renderComponent(podcast, episodes)
     await h.user.click(screen.getByRole('button', { name: 'Continue' }))
 
     expect(playMock).toHaveBeenCalledWith(episodes[0], 123)
@@ -114,8 +121,9 @@ describe('podcastScreen.vue', () => {
     const { podcast } = await renderComponent(h.factory('podcast', { favorite: true }))
     const toggleFavoriteMock = h.mock(podcastStore, 'toggleFavorite')
 
-    await h.tick()
-    await h.user.click(screen.getByRole('button', { name: 'Undo Favorite' }))
+    await waitFor(async () =>
+      await h.user.click(screen.getByRole('button', { name: 'Undo Favorite' })),
+    )
 
     expect(toggleFavoriteMock).toHaveBeenCalledWith(podcast)
   })
@@ -126,12 +134,13 @@ describe('podcastScreen.vue', () => {
   })
 
   it('requests Actions menu', async () => {
+    vi.mock('@/composables/useContextMenu')
+    const { openContextMenu } = useContextMenu()
     const { podcast } = await renderComponent()
-    const emitMock = h.mock(eventBus, 'emit')
 
     await waitFor(async () => {
       await h.user.click(screen.getByRole('button', { name: 'More Actions' }))
-      expect(emitMock).toHaveBeenCalledWith('PODCAST_CONTEXT_MENU_REQUESTED', expect.any(MouseEvent), podcast)
+      await assertOpenContextMenu(openContextMenu as Mock, PodcastContextMenu, { podcast })
     })
   })
 

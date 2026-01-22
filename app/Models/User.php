@@ -2,9 +2,12 @@
 
 namespace App\Models;
 
+use App\Builders\UserBuilder;
 use App\Casts\UserPreferencesCast;
+use App\Enums\Acl\Role as RoleEnum;
 use App\Exceptions\UserAlreadySubscribedToPodcastException;
 use App\Facades\License;
+use App\Models\Contracts\Permissionable;
 use App\Values\User\UserPreferences;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,6 +26,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Laravel\Sanctum\PersonalAccessToken;
 use OwenIt\Auditing\Auditable;
 use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
+use Spatie\Permission\Traits\HasRoles;
 
 /**
  * @property ?Carbon $invitation_accepted_at
@@ -31,12 +35,12 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property ?string $invitation_token
  * @property Collection<array-key, Playlist> $collaboratedPlaylists
  * @property Collection<array-key, Playlist> $playlists
- * @property Collection<array-key, PlaylistFolder> $playlist_folders
+ * @property Collection<array-key, PlaylistFolder> $playlistFolders
  * @property Collection<array-key, Podcast> $podcasts
+ * @property Collection<array-key, Theme> $themes
  * @property Organization $organization
  * @property PersonalAccessToken $currentAccessToken
  * @property UserPreferences $preferences
- * @property bool $is_admin
  * @property int $id
  * @property string $email
  * @property string $name
@@ -50,12 +54,16 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property-read bool $is_prospect
  * @property-read bool $is_sso
  * @property-read string $avatar
+ * @property-read RoleEnum $role
  */
-class User extends Authenticatable implements AuditableContract
+class User extends Authenticatable implements AuditableContract, Permissionable
 {
     use Auditable;
     use HasApiTokens;
     use HasFactory;
+    use HasRoles {
+        scopeRole as scopeWhereRole;
+    }
     use Notifiable;
     use Prunable;
 
@@ -69,11 +77,22 @@ class User extends Authenticatable implements AuditableContract
     protected $hidden = ['password', 'remember_token', 'created_at', 'updated_at', 'invitation_accepted_at'];
     protected $appends = ['avatar'];
     protected array $auditExclude = ['password', 'remember_token', 'invitation_token'];
+    protected $with = ['roles', 'permissions'];
 
     protected $casts = [
-        'is_admin' => 'bool',
         'preferences' => UserPreferencesCast::class,
     ];
+
+    public static function query(): UserBuilder
+    {
+        /** @var UserBuilder */
+        return parent::query();
+    }
+
+    public function newEloquentBuilder($query): UserBuilder
+    {
+        return new UserBuilder($query);
+    }
 
     /**
      * The first admin user in the system.
@@ -83,20 +102,20 @@ class User extends Authenticatable implements AuditableContract
     {
         $defaultOrganization = Organization::default();
 
-        return static::query()
-            ->where([
-                'is_admin' => true,
-                'organization_id' => $defaultOrganization->id,
-            ])
+        return static::query() // @phpstan-ignore-line
+            ->whereRole(RoleEnum::ADMIN)
+            ->where('organization_id', $defaultOrganization->id)
             ->oldest()
             ->firstOr(static function () use ($defaultOrganization): User {
-                return static::query()->create([
-                    'is_admin' => true,
+                /** @var User $user */
+                $user = static::query()->create([
                     'email' => self::FIRST_ADMIN_EMAIL,
                     'name' => self::FIRST_ADMIN_NAME,
                     'password' => Hash::make(self::FIRST_ADMIN_PASSWORD),
                     'organization_id' => $defaultOrganization->id,
                 ]);
+
+                return $user->syncRoles(RoleEnum::ADMIN);
             });
     }
 
@@ -127,7 +146,7 @@ class User extends Authenticatable implements AuditableContract
         return $this->playlists()->wherePivot('role', 'collaborator');
     }
 
-    public function playlist_folders(): HasMany // @phpcs:ignore
+    public function playlistFolders(): HasMany
     {
         return $this->hasMany(PlaylistFolder::class);
     }
@@ -147,6 +166,11 @@ class User extends Authenticatable implements AuditableContract
     public function radioStations(): HasMany
     {
         return $this->hasMany(RadioStation::class);
+    }
+
+    public function themes(): HasMany
+    {
+        return $this->hasMany(Theme::class);
     }
 
     public function subscribedToPodcast(Podcast $podcast): bool
@@ -177,7 +201,7 @@ class User extends Authenticatable implements AuditableContract
 
     protected function hasCustomAvatar(): Attribute
     {
-        return Attribute::get(fn () => (bool) $this->getRawOriginal('avatar'))->shouldCache();
+        return Attribute::get(fn () => (bool)$this->getRawOriginal('avatar'))->shouldCache();
     }
 
     protected function isProspect(): Attribute
@@ -207,10 +231,37 @@ class User extends Authenticatable implements AuditableContract
             return static::query()->whereRaw('false');
         }
 
-        return static::query()->where('created_at', '<=', now()->subWeek())
+        return static::query()
+            ->where('created_at', '<=', now()->subWeek())
             ->where('email', 'like', '%@' . self::DEMO_USER_DOMAIN)
             ->whereDoesntHave('interactions', static function (Builder $query): void {
                 $query->where('last_played_at', '>=', now()->subDays(7));
             });
+    }
+
+    protected function role(): Attribute
+    {
+        // Enforce a single-role permission model
+        return Attribute::make(
+            get: function () {
+                $role = $this->getRoleNames();
+
+                if ($role->isEmpty()) {
+                    return RoleEnum::default();
+                }
+
+                return RoleEnum::tryFrom($role->sole()) ?? RoleEnum::default();
+            },
+        );
+    }
+
+    public function canManage(User $other): bool
+    {
+        return $this->role->canManage($other->role);
+    }
+
+    public static function getPermissionableIdentifier(): string
+    {
+        return 'public_id';
     }
 }

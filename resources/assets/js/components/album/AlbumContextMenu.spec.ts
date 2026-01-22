@@ -7,23 +7,25 @@ import { downloadService } from '@/services/downloadService'
 import { playbackService } from '@/services/QueuePlaybackService'
 import { commonStore } from '@/stores/commonStore'
 import { playableStore } from '@/stores/playableStore'
-import { resourcePermissionService } from '@/services/resourcePermissionService'
+import { acl } from '@/services/acl'
 import Component from './AlbumContextMenu.vue'
 
 describe('albumContextMenu.vue', () => {
   const h = createHarness()
 
   const renderComponent = async (album?: Album) => {
-    h.mock(resourcePermissionService, 'check').mockReturnValue(true)
+    h.mock(acl, 'checkResourcePermission').mockReturnValue(true)
 
     album = album || h.factory('album', {
       name: 'IV',
       favorite: false,
     })
 
-    const rendered = h.beAdmin().render(Component)
-    eventBus.emit('ALBUM_CONTEXT_MENU_REQUESTED', { pageX: 420, pageY: 42 } as MouseEvent, album)
-    await h.tick(2)
+    const rendered = h.actingAsAdmin().render(Component, {
+      props: {
+        album,
+      },
+    })
 
     return {
       ...rendered,
@@ -97,5 +99,13 @@ describe('albumContextMenu.vue', () => {
     await h.user.click(screen.getByText('Edit…'))
 
     expect(emitMock).toHaveBeenCalledWith('MODAL_SHOW_EDIT_ALBUM_FORM', album)
+  })
+
+  it('requests the embed form', async () => {
+    const { album } = await renderComponent()
+    const emitMock = h.mock(eventBus, 'emit')
+    await h.user.click(screen.getByText('Embed…'))
+
+    expect(emitMock).toHaveBeenCalledWith('MODAL_SHOW_CREATE_EMBED_FORM', album)
   })
 })

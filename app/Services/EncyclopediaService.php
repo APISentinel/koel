@@ -30,7 +30,7 @@ class EncyclopediaService
             function () use ($album): AlbumInformation {
                 $info = $this->encyclopedia->getAlbumInformation($album) ?: AlbumInformation::make();
 
-                if ($album->has_cover || (!SpotifyService::enabled() && !$info->cover)) {
+                if ($album->cover || (!SpotifyService::enabled() && !$info->cover)) {
                     // If the album already has a cover, or there's no resource to download a cover from,
                     // just return the info.
                     return $info;
@@ -60,7 +60,7 @@ class EncyclopediaService
             function () use ($artist): ArtistInformation {
                 $info = $this->encyclopedia->getArtistInformation($artist) ?: ArtistInformation::make();
 
-                if ($artist->has_image || (!SpotifyService::enabled() && !$info->image)) {
+                if ($artist->image || (!SpotifyService::enabled() && !$info->image)) {
                     // If the artist already has an image, or there's no resource to download an image from,
                     // just return the info.
                     return $info;
@@ -84,7 +84,15 @@ class EncyclopediaService
             ? $this->spotifyService->tryGetAlbumCover($album)
             : $info->cover;
 
-        return $coverUrl ? $this->imageStorage->storeAlbumCover($album, $coverUrl) : null;
+        if (!$coverUrl) {
+            return null;
+        }
+
+        $fileName = $this->imageStorage->storeImage($coverUrl);
+        $album->cover = $fileName;
+        $album->save();
+
+        return image_storage_url($fileName);
     }
 
     private function fetchAndStoreArtistImage(Artist $artist, ArtistInformation $info): ?string
@@ -93,6 +101,14 @@ class EncyclopediaService
             ? $this->spotifyService->tryGetArtistImage($artist)
             : $info->image;
 
-        return $imgUrl ? $this->imageStorage->storeArtistImage($artist, $imgUrl) : null;
+        if (!$imgUrl) {
+            return null;
+        }
+
+        $fileName = $this->imageStorage->storeImage($imgUrl);
+        $artist->image = $fileName;
+        $artist->save();
+
+        return image_storage_url($fileName);
     }
 }

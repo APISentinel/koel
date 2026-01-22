@@ -2,9 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/vue'
 import { createHarness } from '@/__tests__/TestHarness'
 import { radioStationStore } from '@/stores/radioStationStore'
-import { ModalContextKey } from '@/symbols'
 import type { Reactive } from 'vue'
-import { reactive, ref } from 'vue'
+import { reactive } from 'vue'
 import Component from './EditRadioStationForm.vue'
 
 describe('editRadioStationForm.vue', () => {
@@ -14,10 +13,8 @@ describe('editRadioStationForm.vue', () => {
     station = station ?? h.factory('radio-station')
 
     const rendered = h.render(Component, {
-      global: {
-        provide: {
-          [<symbol>ModalContextKey]: ref({ station }),
-        },
+      props: {
+        station,
       },
     })
 
@@ -41,19 +38,15 @@ describe('editRadioStationForm.vue', () => {
       name: 'Beethoven Goes Pop',
       url: 'https://beet.stream/pop',
       description: 'Poppy af',
-      logo: null,
       is_public: false,
     })
   })
 
-  it('removes the logo', async () => {
+  it('edits a radio station, removing the logo', async () => {
     const updateMock = h.mock(radioStationStore, 'update')
-    const removeLogoMock = h.mock(radioStationStore, 'removeLogo')
     const { station } = renderComponent(reactive(h.factory('radio-station', { is_public: false })))
 
     await h.user.click(screen.getByRole('button', { name: 'Remove' }))
-
-    expect(removeLogoMock).toHaveBeenCalledWith(station)
 
     await h.type(screen.getByPlaceholderText('My Favorite Radio Station'), 'Beethoven Goes Pop')
     await h.type(screen.getByPlaceholderText('https://radio.example.com/stream'), 'https://beet.stream/pop')
@@ -65,25 +58,23 @@ describe('editRadioStationForm.vue', () => {
       name: 'Beethoven Goes Pop',
       url: 'https://beet.stream/pop',
       description: 'Poppy af',
-      logo: null,
+      logo: '',
       is_public: false,
     })
   })
 
-  it('removes and replaces the logo', async () => {
+  it('edits a radio station, replacing the logo', async () => {
     const updateMock = h.mock(radioStationStore, 'update')
-    const removeLogoMock = h.mock(radioStationStore, 'removeLogo')
     const { station } = renderComponent(reactive(h.factory('radio-station', { is_public: false })))
 
     await h.user.click(screen.getByRole('button', { name: 'Remove' }))
-    expect(removeLogoMock).toHaveBeenCalledWith(station)
 
     await h.user.upload(
       screen.getByLabelText('Pick a logo (optional)'),
       new File(['bytes'], 'logo.png', { type: 'image/png' }),
     )
 
-    await waitFor(() => screen.getByAltText('Logo'))
+    await waitFor(() => screen.getByRole('img'))
 
     await h.type(screen.getByPlaceholderText('My Favorite Radio Station'), 'Beethoven Goes Pop')
     await h.type(screen.getByPlaceholderText('https://radio.example.com/stream'), 'https://beet.stream/pop')

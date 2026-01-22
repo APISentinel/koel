@@ -3,123 +3,60 @@
 namespace App\Services;
 
 use App\Helpers\Ulid;
-use App\Models\Album;
-use App\Models\Artist;
 use App\Values\ImageWritingConfig;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
-use Symfony\Component\Finder\Finder;
+use RuntimeException;
 
 class ImageStorage
 {
     public function __construct(
         private readonly ImageWriter $imageWriter,
-        private readonly Finder $finder,
+        private readonly SvgSanitizer $svgSanitizer,
     ) {
     }
 
     /**
-     * Write an album cover image file and update the Album with the new cover attribute.
+     * Store an image file and return the (randomly generated) file name.
      *
-     * @param string $source Path, URL, or even binary data.
-     * See https://image.intervention.io/v3/basics/instantiation#read-image-sources.
-     * @param string|null $destination The destination path. Automatically generated if empty.
-     */
-    public function storeAlbumCover(Album $album, string $source, ?string $destination = ''): ?string
-    {
-        $destination = $destination ?: self::generateRandomStoragePath();
-
-        return rescue(function () use ($album, $source, $destination): string {
-            $this->imageWriter->write($destination, $source);
-            $album->cover = basename($destination);
-            $album->save();
-
-            $this->createThumbnailForAlbum($album);
-
-            return $album->cover;
-        });
-    }
-
-    /**
-     * Write an artist image file update the Artist with the new image attribute.
+     * @param mixed $source Any kind of image data that Intervention can read.
+     * @param ?string $path The path to store the image file. Randomly generated if not provided.
      *
-     * @param string $source Path, URL, or even binary data. See https://image.intervention.io/v2/api/make.
-     * @param string|null $destination The destination path. Automatically generated if empty.
+     * @return string The file name.
      */
-    public function storeArtistImage(Artist $artist, string $source, ?string $destination = ''): ?string
+    public function storeImage(mixed $source, ?ImageWritingConfig $config = null, ?string $path = null): string
     {
-        $destination = $destination ?: self::generateRandomStoragePath();
+        preg_match('/^data:(image\/[A-Za-z0-9+\-.]+);base64,/', $source, $matches);
+        $mime = $matches[1] ?? null;
 
-        return rescue(function () use ($artist, $source, $destination): string {
-            $this->imageWriter->write($destination, $source);
-            $artist->image = basename($destination);
-            $artist->save();
+        if ($mime === 'image/svg+xml') {
+            $svgData = preg_replace('/^data:image\/svg\+xml;base64,/', '', $source);
+            $raw = base64_decode($svgData, true);
 
-            return $artist->image;
-        });
-    }
-
-    /**
-     * Get the URL of an album's thumbnail.
-     * Auto-generate the thumbnail when possible if one doesn't exist.
-     */
-    public function getAlbumThumbnailUrl(Album $album): ?string
-    {
-        if (!$album->has_cover) {
-            return null;
-        }
-
-        if (!File::exists($album->thumbnail_path)) {
-            $this->createThumbnailForAlbum($album);
-        }
-
-        return $album->thumbnail;
-    }
-
-    private function createThumbnailForAlbum(Album $album): void
-    {
-        $this->imageWriter->write($album->thumbnail_path, $album->cover_path, ImageWritingConfig::make(
-            maxWidth: 48,
-            blur: 10,
-        ));
-    }
-
-    public function trySetAlbumCoverFromDirectory(Album $album, string $directory): void
-    {
-        // As directory scanning can be expensive, we cache and reuse the result.
-        Cache::remember(cache_key($directory, 'cover'), now()->addDay(), function () use ($album, $directory): ?string {
-            $matches = array_keys(
-                iterator_to_array(
-                    $this->finder::create()
-                        ->depth(0)
-                        ->ignoreUnreadableDirs()
-                        ->files()
-                        ->followLinks()
-                        ->name('/(cov|fold)er\.(jpe?g|gif|png|webp|avif)$/i')
-                        ->in($directory)
-                )
-            );
-
-            $cover = $matches[0] ?? null;
-
-            if ($cover && is_image($cover)) {
-                $this->storeAlbumCover($album, $cover);
+            if ($raw === false) {
+                throw new RuntimeException('Failed to decode base64 SVG data.');
             }
 
-            return $cover;
-        });
+            $sanitized = $this->svgSanitizer->sanitize($raw);
+
+            if (!$sanitized) {
+                throw new RuntimeException('Invalid SVG file.');
+            }
+
+            $path ??= self::generateRandomStoragePath('svg');
+
+            File::put($path, $sanitized);
+
+            return basename($path);
+        }
+
+        $path ??= self::generateRandomStoragePath();
+        $this->imageWriter->write($path, $source, $config);
+
+        return basename($path);
     }
 
-    public function storeImage(mixed $source, ?ImageWritingConfig $config = null): string
+    private static function generateRandomStoragePath(string $extension = 'webp'): string
     {
-        $destination = self::generateRandomStoragePath();
-        $this->imageWriter->write($destination, $source, $config);
-
-        return basename($destination);
-    }
-
-    private static function generateRandomStoragePath(): string
-    {
-        return image_storage_path(sprintf('%s.webp', Ulid::generate()));
+        return image_storage_path(sprintf("%s.%s", Ulid::generate(), $extension));
     }
 }

@@ -2,16 +2,19 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Enums\Acl\Permission;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PlaylistFolderResource;
 use App\Http\Resources\PlaylistResource;
 use App\Http\Resources\QueueStateResource;
+use App\Http\Resources\ThemeResource;
 use App\Http\Resources\UserResource;
 use App\Models\Setting;
 use App\Models\User;
 use App\Repositories\PlaylistRepository;
 use App\Repositories\SettingRepository;
 use App\Repositories\SongRepository;
+use App\Repositories\ThemeRepository;
 use App\Services\ApplicationInformationService;
 use App\Services\ITunesService;
 use App\Services\LastfmService;
@@ -34,16 +37,22 @@ class FetchInitialDataController extends Controller
         PlaylistRepository $playlistRepository,
         ApplicationInformationService $applicationInformationService,
         QueueService $queueService,
+        ThemeRepository $themeRepository,
         LicenseServiceInterface $licenseService,
         Authenticatable $user
     ) {
         $licenseStatus = $licenseService->getStatus();
+        $theme = $licenseStatus->isValid()
+            ? $themeRepository->findUserThemeById($user->preferences->theme, $user)
+            : null;
 
         return response()->json([
-            'settings' => $user->is_admin ? $settingRepository->getAllAsKeyValueArray() : [],
+            'settings' => $user->hasPermissionTo(Permission::MANAGE_SETTINGS)
+                ? $settingRepository->getAllAsKeyValueArray()
+                : [],
             'playlists' => PlaylistResource::collection($playlistRepository->getAllAccessibleByUser($user)),
-            'playlist_folders' => PlaylistFolderResource::collection($user->playlist_folders),
-            'current_user' => UserResource::make($user, true),
+            'playlist_folders' => PlaylistFolderResource::collection($user->playlistFolders),
+            'current_user' => UserResource::make($user),
             'uses_musicbrainz' => MusicBrainzService::enabled(),
             'uses_last_fm' => LastfmService::used(),
             'uses_spotify' => SpotifyService::enabled(),
@@ -58,7 +67,7 @@ class FetchInitialDataController extends Controller
                 && is_executable(config('koel.streaming.ffmpeg_path')),
             'cdn_url' => static_url(),
             'current_version' => koel_version(),
-            'latest_version' => $user->is_admin
+            'latest_version' => $user->hasPermissionTo(Permission::MANAGE_SETTINGS)
                 ? $applicationInformationService->getLatestVersionNumber()
                 : koel_version(),
             'song_count' => $songRepository->countSongs(),
@@ -73,6 +82,7 @@ class FetchInitialDataController extends Controller
             ],
             'storage_driver' => config('koel.storage_driver'),
             'dir_separator' => DIRECTORY_SEPARATOR,
+            'current_theme' => $theme ? ThemeResource::make($theme) : null,
         ]);
     }
 }

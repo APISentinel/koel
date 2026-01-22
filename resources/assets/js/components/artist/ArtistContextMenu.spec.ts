@@ -7,23 +7,25 @@ import { downloadService } from '@/services/downloadService'
 import { playbackService } from '@/services/QueuePlaybackService'
 import { commonStore } from '@/stores/commonStore'
 import { playableStore } from '@/stores/playableStore'
-import { resourcePermissionService } from '@/services/resourcePermissionService'
+import { acl } from '@/services/acl'
 import Component from './ArtistContextMenu.vue'
 
 describe('artistContextMenu.vue', () => {
   const h = createHarness()
 
   const renderComponent = async (artist?: Artist) => {
-    h.mock(resourcePermissionService, 'check').mockReturnValue(true)
+    h.mock(acl, 'checkResourcePermission').mockReturnValue(true)
 
     artist = artist || h.factory('artist', {
       name: 'Accept',
       favorite: false,
     })
 
-    const rendered = h.render(Component)
-    eventBus.emit('ARTIST_CONTEXT_MENU_REQUESTED', { pageX: 420, pageY: 42 } as MouseEvent, artist)
-    await h.tick(2)
+    const rendered = h.render(Component, {
+      props: {
+        artist,
+      },
+    })
 
     return {
       ...rendered,
@@ -88,5 +90,13 @@ describe('artistContextMenu.vue', () => {
   it('does not have an option to download Various Artist', async () => {
     await renderComponent(factory.states('various')('artist'))
     expect(screen.queryByText('Download')).toBeNull()
+  })
+
+  it('requests the embed form', async () => {
+    const { artist } = await renderComponent()
+    const emitMock = h.mock(eventBus, 'emit')
+    await h.user.click(screen.getByText('Embed…'))
+
+    expect(emitMock).toHaveBeenCalledWith('MODAL_SHOW_CREATE_EMBED_FORM', artist)
   })
 })

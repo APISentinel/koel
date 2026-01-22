@@ -7,7 +7,9 @@ declare global {
     BASE_URL: string
     MAILER_CONFIGURED: boolean
     SSO_PROVIDERS: string[]
+    BRANDING: Branding
     createLemonSqueezy: () => void
+    RUNNING_UNIT_TESTS?: boolean
   }
 
   interface LemonSqueezy {
@@ -50,6 +52,7 @@ HTMLDialogElement.prototype.close = vi.fn(function mock () {
 window.BASE_URL = 'http://test/'
 window.MAILER_CONFIGURED = true
 window.SSO_PROVIDERS = []
+window.RUNNING_UNIT_TESTS = true
 
 window.createLemonSqueezy = vi.fn()
 
@@ -68,3 +71,37 @@ Object.defineProperty(window, 'matchMedia', {
 })
 
 Axios.defaults.adapter = vi.fn()
+
+// Mock iframe's navigation API
+const iframeContentWindowMap = new WeakMap<HTMLIFrameElement, any>()
+
+Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', {
+  configurable: true,
+  get (this: HTMLIFrameElement) {
+    if (!iframeContentWindowMap.has(this)) {
+      const stub = {
+        location: {
+          replace: vi.fn(),
+          assign: vi.fn(),
+          reload: vi.fn(),
+          href: '',
+        },
+        postMessage: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }
+      iframeContentWindowMap.set(this, stub)
+    }
+    return iframeContentWindowMap.get(this)
+  },
+})
+
+const mockIntersectionObserver = vi.fn()
+
+mockIntersectionObserver.mockReturnValue({
+  observe: () => null,
+  unobserve: () => null,
+  disconnect: () => null,
+})
+
+window.IntersectionObserver = mockIntersectionObserver

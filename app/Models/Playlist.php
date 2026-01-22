@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Casts\SmartPlaylistRulesCast;
 use App\Facades\License as LicenseFacade;
+use App\Models\Concerns\MorphsToEmbeds;
+use App\Models\Contracts\Embeddable;
 use App\Models\Song as Playable;
 use App\Values\SmartPlaylist\SmartPlaylistRuleGroupCollection;
 use Carbon\Carbon;
@@ -14,7 +16,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Laravel\Scout\Searchable;
 use OwenIt\Auditing\Auditable;
@@ -32,17 +33,17 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property EloquentCollection<array-key, Playable> $playables
  * @property EloquentCollection<array-key, User> $users
  * @property EloquentCollection<array-key, User> $collaborators
- * @property ?string $cover The playlist cover's URL
- * @property-read ?string $cover_path
+ * @property ?string $cover The playlist cover's file name
  * @property-read EloquentCollection<array-key, PlaylistFolder> $folders
  * @property-read bool $is_collaborative
  * @property int $owner_id
  */
-class Playlist extends Model implements AuditableContract
+class Playlist extends Model implements AuditableContract, Embeddable
 {
     use Auditable;
     use HasFactory;
     use HasUuids;
+    use MorphsToEmbeds;
     use Searchable;
 
     protected $hidden = ['created_at', 'updated_at'];
@@ -99,20 +100,6 @@ class Playlist extends Model implements AuditableContract
     {
         // aliasing the attribute to avoid confusion
         return Attribute::get(fn () => $this->rules);
-    }
-
-    protected function cover(): Attribute
-    {
-        return Attribute::get(static fn (?string $value): ?string => image_storage_url($value))->shouldCache();
-    }
-
-    protected function coverPath(): Attribute
-    {
-        return Attribute::get(function () {
-            $cover = Arr::get($this->attributes, 'cover');
-
-            return $cover ? image_storage_path($cover) : null;
-        })->shouldCache();
     }
 
     public function ownedBy(User $user): bool

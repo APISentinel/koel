@@ -1,12 +1,12 @@
 <template>
   <aside
     :class="{ 'showing-pane': activeTab }"
-    class="fixed sm:relative top-0 w-screen md:w-auto flex flex-col md:flex-row-reverse z-[2] text-k-text-secondary"
+    class="fixed sm:relative top-0 w-screen md:w-auto flex flex-col md:flex-row-reverse z-[2]"
   >
     <header
       class="controls flex md:flex-col justify-between items-center md:w-[64px] md:py-6 tw:px-0
-      bg-black/5 md:border-l border-solid md:border-l-white/5 md:border-b-0 md:shadow-none
-      z-[2] w-screen flex-row border-b border-b-white/5 border-l-0 shadow-xl
+      bg-black/5 md:border-l border-solid md:border-l-k-fg-5 md:border-b-0 md:shadow-none
+      z-[2] w-screen flex-row border-b border-b-k-fg-5 border-l-0 shadow-xl
       py-0 px-6 h-k-header-height"
     >
       <div class="btn-group">
@@ -23,7 +23,7 @@
       </div>
     </header>
 
-    <main v-if="songPlaying" v-show="activeTab" class="panes py-8 px-6 overflow-auto bg-k-bg-secondary">
+    <main v-if="songPlaying" v-show="activeTab" class="panes relative overflow-auto bg-k-fg-5">
       <SideSheetPanelLazyWrapper
         id="extraPanelLyrics"
         :active="activeTab === 'Lyrics'"
@@ -41,8 +41,8 @@
         data-testid="side-sheet-artist"
         aria-labelledby="extraTabArtist"
       >
-        <ArtistInfo v-if="artist && !loadingArtist" :artist="artist" mode="aside" />
-        <SideSheetArtistAlbumInfoSkeleton v-else />
+        <ArtistInfo v-if="artist && !loadingArtist" :artist="artist" class="px-6 py-8" mode="aside" />
+        <SideSheetArtistAlbumInfoSkeleton v-else class="px-6 py-8" />
       </SideSheetPanelLazyWrapper>
 
       <SideSheetPanelLazyWrapper
@@ -52,8 +52,8 @@
         data-testid="side-sheet-album"
         aria-labelledby="extraTabAlbum"
       >
-        <AlbumInfo v-if="album && !loadingAlbum" :album="album" mode="aside" />
-        <SideSheetArtistAlbumInfoSkeleton v-else />
+        <AlbumInfo v-if="album && !loadingAlbum" :album="album" class="px-6 py-8" mode="aside" />
+        <SideSheetArtistAlbumInfoSkeleton v-else class="px-6 py-8" />
       </SideSheetPanelLazyWrapper>
 
       <SideSheetPanelLazyWrapper
@@ -63,7 +63,7 @@
         aria-labelledby="extraTabYouTube"
         data-testid="side-sheet-youtube"
       >
-        <YouTubeVideoList v-if="shouldShowYouTubeTab && streamable" :song="streamable" />
+        <YouTubeVideoList v-if="shouldShowYouTubeTab && streamable" :song="streamable" class="px-6 py-8" />
       </SideSheetPanelLazyWrapper>
     </main>
   </aside>
@@ -91,7 +91,7 @@ import SideSheetArtistAlbumInfoSkeleton
   from '@/components/layout/main-wrapper/side-sheet/SideSheetArtistAlbumInfoSkeleton.vue'
 import SideSheetTabHeader from './SideSheetTabHeader.vue'
 
-const LyricsPane = defineAsyncComponent(() => import('@/components/ui/LyricsPane.vue'))
+const LyricsPane = defineAsyncComponent(() => import('@/components/ui/lyrics/LyricsPane.vue'))
 const ArtistInfo = defineAsyncComponent(() => import('@/components/artist/ArtistInfo.vue'))
 const AlbumInfo = defineAsyncComponent(() => import('@/components/album/AlbumInfo.vue'))
 const YouTubeVideoList = defineAsyncComponent(() => import('@/components/ui/youtube/YouTubeVideoList.vue'))
@@ -194,6 +194,9 @@ onMounted(() => {
 aside {
   @media screen and (max-width: 768px) {
     &.showing-pane {
+      @mixin themed-background {
+      }
+
       height: 100%;
     }
   }

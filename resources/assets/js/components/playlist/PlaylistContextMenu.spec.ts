@@ -9,23 +9,27 @@ import { userStore } from '@/stores/userStore'
 import { playbackService } from '@/services/QueuePlaybackService'
 import { eventBus } from '@/utils/eventBus'
 import Router from '@/router'
-import Component from './PlaylistContextMenu.vue'
 import { playlistStore } from '@/stores/playlistStore'
+import Component from './PlaylistContextMenu.vue'
 
 describe('playlistContextMenu.vue', () => {
   const h = createHarness({
     beforeEach: () => queueStore.state.playables = [],
   })
 
-  const renderComponent = async (playlist: Playlist, user: User | null = null) => {
-    user = user || h.factory('user', {
+  const renderComponent = async (playlist: Playlist, user: CurrentUser | null = null) => {
+    user = user || h.factory.states('current')('user', {
       id: playlist.owner_id,
-    })
+    }) as CurrentUser
 
     userStore.state.current = user
 
-    const rendered = h.render(Component)
-    eventBus.emit('PLAYLIST_CONTEXT_MENU_REQUESTED', { pageX: 420, pageY: 42 } as MouseEvent, playlist)
+    const rendered = h.render(Component, {
+      props: {
+        playlist,
+      },
+    })
+
     await h.tick(2)
 
     return {
@@ -157,19 +161,26 @@ describe('playlistContextMenu.vue', () => {
   })
 
   it('does not have an option to edit or delete if the playlist is not owned by the current user', async () => {
-    await renderComponent(h.factory('playlist'), h.factory('user'))
+    await renderComponent(h.factory('playlist'), h.factory.states('current')('user') as CurrentUser)
 
     expect(screen.queryByText('Edit…')).toBeNull()
     expect(screen.queryByText('Delete')).toBeNull()
   })
 
-  it('opens collaboration form', async () => {
-    h.enablePlusEdition()
+  it('opens collaboration form', async () => await h.withPlusEdition(async () => {
     const { playlist } = await renderComponent(h.factory('playlist'))
     const emitMock = h.mock(eventBus, 'emit')
 
     await h.user.click(screen.getByText('Collaborate…'))
 
     expect(emitMock).toHaveBeenCalledWith('MODAL_SHOW_PLAYLIST_COLLABORATION', playlist)
+  }))
+
+  it('requests the embed form', async () => {
+    const { playlist } = await renderComponent(h.factory('playlist'))
+    const emitMock = h.mock(eventBus, 'emit')
+    await h.user.click(screen.getByText('Embed…'))
+
+    expect(emitMock).toHaveBeenCalledWith('MODAL_SHOW_CREATE_EMBED_FORM', playlist)
   })
 })

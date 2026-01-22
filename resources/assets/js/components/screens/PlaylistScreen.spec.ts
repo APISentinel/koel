@@ -1,11 +1,15 @@
 import { screen, waitFor } from '@testing-library/vue'
-import { describe, expect, it } from 'vitest'
+import type { Mock } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createHarness } from '@/__tests__/TestHarness'
 import { eventBus } from '@/utils/eventBus'
 import { playlistStore } from '@/stores/playlistStore'
 import { playableStore } from '@/stores/playableStore'
 import Router from '@/router'
 import type { Events } from '@/config/events'
+import { useContextMenu } from '@/composables/useContextMenu'
+import { assertOpenContextMenu } from '@/__tests__/assertions'
+import PlaylistContextMenu from '@/components/playlist/PlaylistContextMenu.vue'
 import Component from './PlaylistScreen.vue'
 
 describe('playlistScreen.vue', () => {
@@ -13,7 +17,7 @@ describe('playlistScreen.vue', () => {
 
   const renderComponent = async (songs: Playable[] = []) => {
     const playlist = h.factory('playlist')
-    h.be(h.factory('user', { id: playlist.owner_id }))
+    h.actingAsUser(h.factory.states('current')('user', { id: playlist.owner_id }) as CurrentUser)
 
     playlistStore.state.playlists = []
     playlistStore.init([playlist])
@@ -21,12 +25,15 @@ describe('playlistScreen.vue', () => {
 
     const fetchSongsMock = h.mock(playableStore, 'fetchForPlaylist').mockResolvedValueOnce(songs)
 
-    const rendered = h.render(Component)
+    const rendered = h.render(Component, {
+      global: {
+        stubs: {
+          FavoriteButton: h.stub('favorite-button', true),
+        },
+      },
+    })
 
-    await h.router.activateRoute({
-      path: `playlists/${playlist.id}`,
-      screen: 'Playlist',
-    }, { id: playlist.id })
+    h.visit(`playlists/${playlist.id}`)
 
     await waitFor(() => expect(fetchSongsMock).toHaveBeenCalledWith(playlist, false))
 
@@ -65,12 +72,13 @@ describe('playlistScreen.vue', () => {
   })
 
   it('shows Actions menu', async () => {
+    vi.mock('@/composables/useContextMenu')
+    const { openContextMenu } = useContextMenu()
     const { playlist } = await renderComponent()
-    const emitMock = h.mock(eventBus, 'emit')
 
     await waitFor(async () => {
       await h.user.click(screen.getByRole('button', { name: 'More Actions' }))
-      expect(emitMock).toHaveBeenCalledWith('PLAYLIST_CONTEXT_MENU_REQUESTED', expect.any(MouseEvent), playlist)
+      await assertOpenContextMenu(openContextMenu as Mock, PlaylistContextMenu, { playlist })
     })
   })
 

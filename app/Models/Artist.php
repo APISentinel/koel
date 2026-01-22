@@ -5,8 +5,10 @@ namespace App\Models;
 use App\Builders\ArtistBuilder;
 use App\Facades\License;
 use App\Facades\Util;
+use App\Models\Concerns\MorphsToEmbeds;
 use App\Models\Concerns\MorphsToFavorites;
 use App\Models\Concerns\SupportsDeleteWhereValueNotIn;
+use App\Models\Contracts\Embeddable;
 use App\Models\Contracts\Favoriteable;
 use App\Models\Contracts\Permissionable;
 use Carbon\Carbon;
@@ -17,31 +19,28 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\File;
 use Laravel\Scout\Searchable;
 use OwenIt\Auditing\Auditable;
 use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 
 /**
- * @property ?string $image Public URL to the artist's image
- * @property ?string $image_path Absolute path to the artist's image
+ * @property ?string $image The artist's image file name
  * @property Carbon $created_at
  * @property Collection<array-key, Album> $albums
  * @property Collection<array-key, Song> $songs
  * @property User $user
- * @property bool $has_image If the artist has a (non-default) image
  * @property bool $is_unknown If the artist is Unknown Artist
- * @property bool $is_various If the artist is Various Artist
- * @property string $id
+ * @property bool $is_various If the artist is Various Artists
  * @property int $user_id The ID of the user that owns this artist
+ * @property string $id
  * @property string $name
  */
-class Artist extends Model implements AuditableContract, Favoriteable, Permissionable
+class Artist extends Model implements AuditableContract, Embeddable, Favoriteable, Permissionable
 {
     use Auditable;
     use HasFactory;
     use HasUlids;
+    use MorphsToEmbeds;
     use MorphsToFavorites;
     use Searchable;
     use SupportsDeleteWhereValueNotIn;
@@ -131,28 +130,6 @@ class Artist extends Model implements AuditableContract, Favoriteable, Permissio
     protected function name(): Attribute
     {
         return Attribute::get(static fn (string $value): string => html_entity_decode($value) ?: self::UNKNOWN_NAME);
-    }
-
-    /**
-     * Turn the image name into its absolute URL.
-     */
-    protected function image(): Attribute
-    {
-        return Attribute::get(static fn (?string $value): ?string => image_storage_url($value));
-    }
-
-    protected function imagePath(): Attribute
-    {
-        return Attribute::get(fn (): ?string => image_storage_path(Arr::get($this->attributes, 'image')));
-    }
-
-    protected function hasImage(): Attribute
-    {
-        return Attribute::get(function (): bool {
-            $image = Arr::get($this->attributes, 'image');
-
-            return $image && (app()->runningUnitTests() || File::exists(image_storage_path($image)));
-        });
     }
 
     /** @return array<mixed> */

@@ -9,10 +9,11 @@ use App\Casts\SongStorageCast;
 use App\Casts\SongTitleCast;
 use App\Enums\PlayableType;
 use App\Enums\SongStorageType;
+use App\Models\Concerns\MorphsToEmbeds;
 use App\Models\Concerns\MorphsToFavorites;
 use App\Models\Concerns\SupportsDeleteWhereValueNotIn;
+use App\Models\Contracts\Embeddable;
 use App\Models\Contracts\Favoriteable;
-use App\Values\Scanning\ScanInformation;
 use App\Values\SongStorageMetadata\DropboxMetadata;
 use App\Values\SongStorageMetadata\LocalMetadata;
 use App\Values\SongStorageMetadata\S3CompatibleMetadata;
@@ -63,6 +64,7 @@ use Webmozart\Assert\Assert;
  * @property int $owner_id
  * @property int $track
  * @property ?int $year
+ * @property ?int $file_size The size in bytes of the song file, if available.
  * @property string $id
  * @property string $lyrics
  * @property string $path
@@ -85,11 +87,12 @@ use Webmozart\Assert\Assert;
  * @property ?string $podcast_id
  * @property ?Podcast $podcast
  */
-class Song extends Model implements AuditableContract, Favoriteable
+class Song extends Model implements AuditableContract, Favoriteable, Embeddable
 {
     use Auditable;
     use HasFactory;
     use HasUuids;
+    use MorphsToEmbeds;
     use MorphsToFavorites;
     use Searchable;
     use SupportsDeleteWhereValueNotIn;
@@ -101,6 +104,7 @@ class Song extends Model implements AuditableContract, Favoriteable
         'title' => SongTitleCast::class,
         'lyrics' => SongLyricsCast::class,
         'length' => 'float',
+        'file_size' => 'int',
         'mtime' => 'int',
         'track' => 'int',
         'disc' => 'int',
@@ -318,16 +322,11 @@ class Song extends Model implements AuditableContract, Favoriteable
      * This is done by comparing the stored hash or mtime with the corresponding
      * value from the scan information.
      */
-    public function isFileModified(ScanInformation $scanInformation): bool
+    public function isFileModified(int $lastModified): bool
     {
         throw_if($this->isEpisode(), new LogicException('Podcast episodes do not have associated files.'));
 
-        // Prioritize hash over mtime, but keep mtime as a fallback for backwards compatibility.
-        if ($this->hash) {
-            return $this->hash !== $scanInformation->hash;
-        }
-
-        return $this->mtime !== $scanInformation->mTime;
+        return $this->mtime !== $lastModified;
     }
 
     public function __toString(): string

@@ -1,8 +1,12 @@
 <?php
 
 use App\Facades\License;
+use App\Services\SettingService;
+use App\Values\Branding;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Webmozart\Assert\Assert;
 
 /**
  * Get a URL for static file requests.
@@ -23,14 +27,14 @@ function base_url(): string
     return app()->runningUnitTests() ? config('app.url') : asset('');
 }
 
-function image_storage_path(?string $fileName): ?string
+function image_storage_path(?string $fileName, ?string $default = null): ?string
 {
-    return $fileName ? public_path(config('koel.image_storage_dir') . $fileName) : null;
+    return $fileName ? public_path(config('koel.image_storage_dir') . $fileName) : $default;
 }
 
-function image_storage_url(?string $fileName): ?string
+function image_storage_url(?string $fileName, ?string $default = null): ?string
 {
-    return $fileName ? static_url(config('koel.image_storage_dir') . $fileName) : null;
+    return $fileName ? static_url(config('koel.image_storage_dir') . $fileName) : $default;
 }
 
 function artifact_path(?string $subPath = null, $ensureDirectoryExists = true): string
@@ -53,14 +57,14 @@ function koel_version(): string
     return trim(File::get(base_path('.version')));
 }
 
-function rescue_if($condition, callable $callback): mixed
+function rescue_if($condition, callable $callback, $default = null): mixed
 {
-    return value($condition) ? rescue($callback) : null;
+    return value($condition) ? rescue($callback, $default) : $default;
 }
 
-function rescue_unless($condition, callable $callback): mixed
+function rescue_unless($condition, callable $callback, $default = null): mixed
 {
-    return !value($condition) ? rescue($callback) : null;
+    return rescue_if(!$condition, $callback, $default);
 }
 
 function gravatar(string $email, int $size = 192): string
@@ -113,12 +117,12 @@ function collect_sso_providers(): array
     return $providers;
 }
 
-function get_mtime(string|SplFileInfo $file): int
+function get_mtime(string|SplFileInfo $path): int
 {
-    $file = is_string($file) ? new SplFileInfo($file) : $file;
+    $path = is_string($path) ? $path : $path->getPathname();
 
     // Workaround for #344, where getMTime() fails for certain files with Unicode names on Windows.
-    return rescue(static fn () => $file->getMTime()) ?? time();
+    return rescue(static fn () => File::lastModified($path)) ?? time();
 }
 
 /**
@@ -189,4 +193,22 @@ function find_ffmpeg_path(): ?string
     }
 
     return null;
+}
+
+function koel_branding(?string $key = null): Branding|string|null
+{
+    Assert::inArray($key, [null, 'name', 'logo', 'cover']);
+
+    $branding = once(static function (): Branding {
+        /** @var SettingService $service */
+        $service = app(SettingService::class);
+
+        return $service->getBranding();
+    });
+
+    if (!$key) {
+        return $branding;
+    }
+
+    return Arr::get($branding->toArray(), $key);
 }

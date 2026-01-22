@@ -13,6 +13,7 @@ use App\Http\Controllers\IndexController;
 use App\Http\Controllers\LastfmController;
 use App\Http\Controllers\PlayController;
 use App\Http\Controllers\SSO\GoogleCallbackController;
+use App\Http\Controllers\StreamEmbedController;
 use App\Http\Controllers\StreamRadioController;
 use App\Http\Controllers\ViewSongOnITunesController;
 use Illuminate\Support\Facades\Route;
@@ -41,7 +42,7 @@ Route::middleware('web')->group(static function (): void {
     Route::get('auth/google/redirect', static fn () => Socialite::driver('google')->redirect());
     Route::get('auth/google/callback', GoogleCallbackController::class);
 
-    Route::get('dropbox/authorize', AuthorizeDropboxController::class)->name('dropbox.authorize');
+    Route::get('dropbox/authorize/{key}', AuthorizeDropboxController::class)->name('dropbox.authorize');
 
     Route::middleware('audio.auth')->group(static function (): void {
         Route::get('play/{song}/{transcode?}', PlayController::class)->name('song.play');
@@ -58,6 +59,10 @@ Route::middleware('web')->group(static function (): void {
             });
         }
     });
+
+    Route::get('embeds/{embed}/stream/{song}/{options}', StreamEmbedController::class)
+        ->name('embeds.stream')
+        ->middleware('signed', 'throttle:10,1');
 });
 
 Route::middleware('web')->prefix('demo')->group(static function (): void {

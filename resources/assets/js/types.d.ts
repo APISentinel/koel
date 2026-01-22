@@ -77,6 +77,9 @@ interface Window {
   SSO_PROVIDERS: SSOProvider[]
   AUTH_TOKEN: CompositeToken | null
   ACCEPTED_AUDIO_EXTENSIONS: string[]
+  RUNNING_UNIT_TESTS?: boolean
+
+  BRANDING: Branding
 
   readonly PUSHER_APP_KEY: string
   readonly PUSHER_APP_CLUSTER: string
@@ -93,6 +96,12 @@ interface Window {
 
 interface FileSystemEntry {
   createReader: () => FileSystemDirectoryReader
+}
+
+interface Branding {
+  name: string
+  logo: string
+  cover: string
 }
 
 type EncyclopediaDisplayMode = 'aside' | 'full'
@@ -164,6 +173,7 @@ interface BasePlayable extends IStreamable {
   preloaded?: boolean
   playback_state?: PlaybackState
   fmt_length?: string
+  embed_stream_url?: string // only when embedded
 }
 
 interface Song extends BasePlayable {
@@ -213,6 +223,20 @@ interface RadioStation extends IStreamable {
 
 type Playable = Song | Episode
 type Streamable = Playable | RadioStation
+type Embeddable = Playable | Playlist | Artist | Album
+
+interface Embed {
+  type: 'embeds'
+  id: string
+  user_id: User['id']
+  embeddable_id: Embeddable['id']
+  embeddable_type: 'playable' | 'playlist' | 'artist' | 'album'
+}
+
+type WidgetReadyEmbed = Embed & {
+  embeddable: Embeddable
+  playables: Playable[]
+}
 
 interface QueueState {
   type: 'queue-states'
@@ -365,18 +389,27 @@ interface UserPreferences extends Record<string, any> {
   lastfm_session_key?: string
 }
 
+type Permission = 'manage settings' | 'manage users' | 'manage songs' | 'manage podcasts' | 'manage radio stations'
+type Role = ('admin' | 'manager' | 'user') & string
+
 interface User {
   type: 'users'
   id: string
   name: string
   email: string
-  is_admin: boolean
   is_prospect: boolean
   password?: string
-  preferences?: UserPreferences
   avatar: string
+  role: Role
   sso_provider: SSOProvider | null
   sso_id: string | null
+  preferences?: UserPreferences
+  permissions?: Permission[]
+}
+
+type CurrentUser = User & {
+  preferences: UserPreferences
+  permissions: Permission[]
 }
 
 interface Settings {
@@ -427,35 +460,37 @@ interface EqualizerPreset {
 
 declare type PlaybackState = 'Stopped' | 'Playing' | 'Paused'
 declare type ScreenName =
-  | 'Home'
-  | 'Default' | 'Blank'
-  | 'Queue'
-  | 'Songs'
-  | 'Albums'
-  | 'Artists'
-  | 'Favorites'
-  | 'RecentlyPlayed'
-  | 'Settings'
-  | 'Users'
-  | 'YouTube'
-  | 'Visualizer'
-  | 'Profile'
+  | '404'
   | 'Album'
+  | 'Albums'
   | 'Artist'
-  | 'Genres'
-  | 'Genre'
-  | 'Playlist'
-  | 'Upload'
-  | 'Podcasts'
-  | 'Podcast'
-  | 'Radio.Stations'
+  | 'Artists'
+  | 'Default'
+  | 'Embed'
   | 'Episode'
+  | 'Favorites'
+  | 'Genre'
+  | 'Genres'
+  | 'Home'
+  | 'Invitation.Accept'
+  | 'MediaBrowser'
+  | 'Password.Reset'
+  | 'Playlist'
+  | 'Playlist.Collaborate'
+  | 'Podcast'
+  | 'Podcasts'
+  | 'Profile'
+  | 'Queue'
+  | 'Radio.Stations'
+  | 'RecentlyPlayed'
   | 'Search.Excerpt'
   | 'Search.Playables'
-  | 'MediaBrowser'
-  | 'Invitation.Accept'
-  | 'Password.Reset'
-  | '404'
+  | 'Settings'
+  | 'Songs'
+  | 'Upload'
+  | 'Users'
+  | 'Visualizer'
+  | 'YouTube'
 
 declare type CardLayout = 'full' | 'compact'
 
@@ -471,13 +506,9 @@ interface PlayableListControlsConfig {
   filter: boolean
 }
 
-type ThemeableProperty = '--color-text-primary'
-  | '--color-text-secondary'
-  | '--color-bg-primary'
-  | '--color-bg-secondary'
+type ThemeableProperty = '--color-fg'
+  | '--color-bg'
   | '--color-highlight'
-  | '--color-bg-input'
-  | '--color-text-input'
   | '--bg-image'
   | '--bg-position'
   | '--bg-attachment'
@@ -487,11 +518,12 @@ type ThemeableProperty = '--color-text-primary'
 
 interface Theme {
   id: string
-  name?: string
-  thumbnailColor: string
-  thumbnailUrl?: string
+  name: string
+  thumbnail_color: string
+  thumbnail_image?: string
   selected?: boolean
   properties?: Partial<Record<ThemeableProperty, string>>
+  is_custom?: boolean
 }
 
 type ViewMode = 'list' | 'thumbnails'
@@ -504,11 +536,12 @@ interface PlayableListConfig {
   reorderable: boolean
   collaborative: boolean
   hasCustomOrderSort: boolean
+  hasHeader: boolean
 }
 
 interface PlayableListContext {
   entity?: Playlist | Album | Artist | Genre
-  type?: Extract<ScreenName, 'Songs' | 'Album' | 'Artist' | 'Playlist' | 'Favorites' | 'RecentlyPlayed' | 'Queue' | 'Genre' | 'Search.Playables'>
+  type?: Extract<ScreenName, 'Home' | 'Songs' | 'Album' | 'Artist' | 'Playlist' | 'Favorites' | 'RecentlyPlayed' | 'Queue' | 'Genre' | 'Search.Playables'>
 }
 
 type PlayableListSortField =
@@ -618,4 +651,20 @@ interface LiveEvent {
     url: string
     city: string
   }
+}
+
+interface EmbedLayout {
+  id: string
+  name: string
+}
+
+interface EmbedOptions {
+  theme: Theme['id']
+  layout: EmbedLayout['id']
+  preview: boolean
+}
+
+interface LrcLine {
+  time: number
+  text: string
 }

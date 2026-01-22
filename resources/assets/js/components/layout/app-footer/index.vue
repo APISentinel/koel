@@ -1,7 +1,7 @@
 <template>
   <footer
     ref="root"
-    class="flex flex-col relative z-20 bg-k-bg-secondary h-k-footer-height"
+    class="flex flex-col relative z-20 bg-k-fg-5 h-k-footer-height"
     @mousemove="showControls"
     @contextmenu.prevent="requestContextMenu"
   >
@@ -35,6 +35,7 @@ import { artistStore } from '@/stores/artistStore'
 import { preferenceStore } from '@/stores/preferenceStore'
 import { audioService } from '@/services/audioService'
 import { playback } from '@/services/playbackManager'
+import { useContextMenu } from '@/composables/useContextMenu'
 
 import AudioPlayer from '@/components/layout/app-footer/AudioPlayer.vue'
 import ExtraControls from '@/components/layout/app-footer/FooterExtraControls.vue'
@@ -43,6 +44,8 @@ import PlaybackControls from '@/components/layout/app-footer/FooterPlaybackContr
 const SongInfo = defineAsyncComponent(() => import('@/components/layout/app-footer/FooterPlayableInfo.vue'))
 const RadioStationInfo = defineAsyncComponent(() => import('@/components/layout/app-footer/FooterRadioStationInfo.vue'))
 const UpNext = defineAsyncComponent(() => import('@/components/layout/app-footer/UpNext.vue'))
+const PlayableContextMenu = defineAsyncComponent(() => import('@/components/playable/PlayableContextMenu.vue'))
+const RadioStationContextMenu = defineAsyncComponent(() => import('@/components/radio/RadioStationContextMenu.vue'))
 
 const currentStreamable = requireInjection(CurrentStreamableKey, ref())
 let hideControlsTimeout: number
@@ -52,6 +55,7 @@ const artist = ref<Artist>()
 const nextPlayable = ref<Playable | null>(null)
 
 const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(root)
+const { openContextMenu } = useContextMenu()
 
 const showingUpNext = computed(() => nextPlayable.value && isFullscreen.value)
 const isRadio = computed(() => currentStreamable.value && isRadioStation(currentStreamable.value))
@@ -62,9 +66,13 @@ const requestContextMenu = (event: MouseEvent) => {
   }
 
   if (isRadio.value) {
-    eventBus.emit('RADIO_STATION_CONTEXT_MENU_REQUESTED', event, currentStreamable.value as RadioStation)
+    openContextMenu<'RADIO_STATION'>(RadioStationContextMenu, event, {
+      station: currentStreamable.value as RadioStation,
+    })
   } else {
-    eventBus.emit('PLAYABLE_CONTEXT_MENU_REQUESTED', event, currentStreamable.value as Playable)
+    openContextMenu<'PLAYABLES'>(PlayableContextMenu, event, {
+      playables: [currentStreamable.value as Playable],
+    })
   }
 }
 
@@ -177,6 +185,11 @@ footer {
       @apply opacity-0;
     }
 
+    &.hide-controls::after {
+      transition: opacity 2s ease-in-out !important;
+      @apply opacity-0;
+    }
+
     .wrapper {
       @apply z-[3];
     }
@@ -199,7 +212,7 @@ footer {
     }
 
     &::after {
-      background-image: linear-gradient(0deg, rgba(0, 0, 0, 1) 0%, rgba(255, 255, 255, 0) 30vh);
+      background-image: linear-gradient(0deg, var(--color-bg) 0%, rgba(255, 255, 255, 0) 30vh);
       content: '';
       @apply absolute w-full h-full top-0 left-0 z-[1] pointer-events-none;
     }

@@ -26,13 +26,14 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 
 class SongService
 {
     public function __construct(
         private readonly SongRepository $songRepository,
         private readonly TranscodeRepository $transcodeRepository,
-        private readonly ImageStorage $imageStorage,
+        private readonly AlbumService $albumService,
         private readonly CacheStrategy $cache,
     ) {
     }
@@ -91,7 +92,7 @@ class SongService
             });
 
             $affectedArtists->each(static function (Artist $artist) use ($result): void {
-                if ($artist->refresh()->songs()->count() === 0) {
+                if ($artist->songs()->count() === 0 && $artist->albums()->count() === 0) {
                     $result->addRemovedArtist($artist);
                     $artist->delete();
                 }
@@ -110,7 +111,7 @@ class SongService
 
         // For nullable fields, use the existing value only if the provided data is explicitly null
         // (i.e., when multiple songs are being updated and the user did not provide a value).
-        // This allows us to clear those fields (when user provides an empty string).
+        // This allows us to clear those fields (when the user provides an empty string).
         $data->albumArtistName ??= $song->album_artist->name;
         $data->lyrics ??= $song->lyrics;
         $data->track ??= $song->track;
@@ -200,13 +201,15 @@ class SongService
         event(new LibraryChanged());
     }
 
-    public function createOrUpdateSongFromScan(ScanInformation $info, ScanConfiguration $config): Song
-    {
-        /** @var ?Song $song */
-        $song = Song::query()->where('path', $info->path)->first();
+    public function createOrUpdateSongFromScan(
+        ScanInformation $info,
+        ScanConfiguration $config,
+        ?Song $song = null,
+    ): ?Song {
+        $song ??= $this->songRepository->findOneByPath($info->path);
 
         $isFileNew = !$song;
-        $isFileModified = $song && $song->isFileModified($info);
+        $isFileModified = $song && $song->isFileModified($info->mTime);
         $isFileNewOrModified = $isFileNew || $isFileModified;
 
         if (!$isFileNewOrModified && !$config->force) {
@@ -230,13 +233,15 @@ class SongService
 
         $album = $this->resolveAlbum($albumArtist, Arr::get($data, 'album'));
 
-        if (!$album->has_cover && !in_array('cover', $config->ignores, true)) {
+        $hasCover = $album->cover && File::exists(image_storage_path($album->cover));
+
+        if (!$hasCover && !in_array('cover', $config->ignores, true)) {
             $coverData = Arr::get($data, 'cover.data');
 
             if ($coverData) {
-                $this->imageStorage->storeAlbumCover($album, $coverData);
+                $this->albumService->storeAlbumCover($album, $coverData);
             } else {
-                $this->imageStorage->trySetAlbumCoverFromDirectory($album, dirname($data['path']));
+                $this->albumService->trySetAlbumCoverFromDirectory($album, dirname($data['path']));
             }
         }
 
@@ -278,7 +283,6 @@ class SongService
 
         return $this->cache->remember(
             key: cache_key(__METHOD__, $user->id, $name),
-            ttl: now()->addMinutes(30),
             callback: static fn () => Artist::getOrCreate($user, $name)
         );
     }
@@ -289,7 +293,6 @@ class SongService
 
         return $this->cache->remember(
             key: cache_key(__METHOD__, $artist->id, $name),
-            ttl: now()->addMinutes(30),
             callback: static fn () => Album::getOrCreate($artist, $name)
         );
     }

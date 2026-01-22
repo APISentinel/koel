@@ -1,10 +1,8 @@
-import { ref } from 'vue'
 import { describe, expect, it } from 'vitest'
 import { createHarness } from '@/__tests__/TestHarness'
 import { playlistFolderStore } from '@/stores/playlistFolderStore'
 import { playlistStore } from '@/stores/playlistStore'
 import { screen, waitFor } from '@testing-library/vue'
-import { ModalContextKey } from '@/symbols'
 import Component from './EditPlaylistForm.vue'
 
 describe('editPlaylistForm.vue', () => {
@@ -15,10 +13,8 @@ describe('editPlaylistForm.vue', () => {
     playlistStore.state.playlists = [playlist]
 
     const rendered = h.render(Component, {
-      global: {
-        provide: {
-          [<symbol>ModalContextKey]: ref({ playlist }),
-        },
+      props: {
+        playlist,
       },
     })
 
@@ -46,14 +42,12 @@ describe('editPlaylistForm.vue', () => {
         name: 'Your playlist',
         description: 'Updated description',
         folder_id: playlist.folder_id,
-        cover: null,
       })
     })
   })
 
   it('removes the cover', async () => {
     const updateMock = h.mock(playlistStore, 'update')
-    const removeCoverMock = h.mock(playlistStore, 'removeCover')
 
     const { playlist } = renderComponent(h.factory('playlist', {
       name: 'My playlist',
@@ -61,7 +55,6 @@ describe('editPlaylistForm.vue', () => {
     }))
 
     await h.user.click(screen.getByRole('button', { name: 'Remove' }))
-    expect(removeCoverMock).toHaveBeenCalledWith(playlist)
 
     await h.type(screen.getByRole('textbox', { name: 'name' }), 'Your playlist')
     await h.type(screen.getByRole('textbox', { name: 'description' }), 'Updated description')
@@ -72,14 +65,13 @@ describe('editPlaylistForm.vue', () => {
         name: 'Your playlist',
         description: 'Updated description',
         folder_id: playlist.folder_id,
-        cover: null,
+        cover: '',
       })
     })
   })
 
   it('removes and replaces the cover', async () => {
     const updateMock = h.mock(playlistStore, 'update')
-    const removeCoverMock = h.mock(playlistStore, 'removeCover')
 
     const { playlist } = renderComponent(h.factory('playlist', {
       name: 'My playlist',
@@ -87,14 +79,13 @@ describe('editPlaylistForm.vue', () => {
     }))
 
     await h.user.click(screen.getByRole('button', { name: 'Remove' }))
-    expect(removeCoverMock).toHaveBeenCalledWith(playlist)
 
     await h.user.upload(
       screen.getByLabelText('Pick a cover (optional)'),
       new File(['bytes'], 'cover.png', { type: 'image/png' }),
     )
 
-    await waitFor(() => screen.getByAltText('Cover'))
+    await waitFor(() => screen.getByRole('img'))
 
     await h.type(screen.getByRole('textbox', { name: 'name' }), 'Your playlist')
     await h.type(screen.getByRole('textbox', { name: 'description' }), 'Updated description')

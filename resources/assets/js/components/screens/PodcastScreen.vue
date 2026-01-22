@@ -15,7 +15,7 @@
 
         <template #meta>
           <div>
-            <p class="text-2xl text-k-text-primary mb-1">{{ podcast.author }}</p>
+            <p class="text-2xl text-k-fg mb-1">{{ podcast.author }}</p>
             <div
               ref="descriptionEl"
               v-koel-new-tab
@@ -59,7 +59,7 @@
       </ScreenHeader>
     </template>
 
-    <div class="-m-6 min-h-full flex flex-col flex-1 overflow-auto divide-y divide-white/10">
+    <div class="-m-6 min-h-full flex flex-col flex-1 overflow-auto divide-y divide-k-fg-10">
       <template v-if="loading && !episodes && !podcast">
         <EpisodeItemSkeleton v-for="i in 5" :key="i" />
       </template>
@@ -80,7 +80,7 @@
 import DOMPurify from 'dompurify'
 import { orderBy } from 'lodash'
 import { faEllipsis, faPause, faPlay, faRotateRight } from '@fortawesome/free-solid-svg-icons'
-import { computed, nextTick, provide, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, provide, reactive, ref } from 'vue'
 import { useRouter } from '@/composables/useRouter'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { playableStore as episodeStore } from '@/stores/playableStore'
@@ -91,6 +91,8 @@ import { useFuzzySearch } from '@/composables/useFuzzySearch'
 import { playback } from '@/services/playbackManager'
 import { FilterKeywordsKey } from '@/symbols'
 import { eventBus } from '@/utils/eventBus'
+import { useContextMenu } from '@/composables/useContextMenu'
+import { defineAsyncComponent } from '@/utils/helpers'
 
 import ScreenBase from '@/components/screens/ScreenBase.vue'
 import ScreenHeader from '@/components/ui/ScreenHeader.vue'
@@ -101,9 +103,11 @@ import Btn from '@/components/ui/form/Btn.vue'
 import ListFilter from '@/components/ui/ListFilter.vue'
 import BtnGroup from '@/components/ui/form/BtnGroup.vue'
 import EpisodeItemSkeleton from '@/components/podcast/EpisodeItemSkeleton.vue'
-import FavoriteButton from '@/components/ui/FavoriteButton.vue'
 
-const { onScreenActivated, getRouteParam, go, triggerNotFound, url } = useRouter()
+const FavoriteButton = defineAsyncComponent(() => import('@/components/ui/FavoriteButton.vue'))
+const ContextMenu = defineAsyncComponent(() => import('@/components/podcast/PodcastContextMenu.vue'))
+
+const { getRouteParam, go, triggerNotFound, url } = useRouter()
 const { handleHttpError } = useErrorHandler()
 
 const description = reactive({
@@ -116,7 +120,6 @@ const descriptionEl = ref<HTMLDivElement>()
 
 const headerLayout = ref<ScreenHeaderLayout>('expanded')
 const loading = ref(false)
-const podcastId = ref<Podcast['id']>()
 const podcast = ref<Podcast>()
 const episodes = ref<Episode[]>([])
 const keywords = ref('')
@@ -124,15 +127,18 @@ const keywords = ref('')
 provide(FilterKeywordsKey, keywords)
 
 const { search } = useFuzzySearch<Episode>(episodes, ['title', 'episode_description'])
+const { openContextMenu } = useContextMenu()
 
-const fetchDetails = async () => {
+const fetchDetails = async (id: Podcast['id']) => {
   [podcast.value, episodes.value] = await Promise.all([
-    podcastStore.resolve(podcastId.value!),
-    episodeStore.fetchEpisodesInPodcast(podcastId.value!),
+    podcastStore.resolve(id),
+    episodeStore.fetchEpisodesInPodcast(id),
   ])
 }
 
-watch(podcastId, async id => {
+const init = async () => {
+  const id = getRouteParam('id')
+
   if (!id || loading.value) {
     return
   }
@@ -140,7 +146,7 @@ watch(podcastId, async id => {
   loading.value = true
 
   try {
-    await fetchDetails()
+    await fetchDetails(id)
     description.content = DOMPurify.sanitize(podcast.value?.description || '')
     await nextTick()
     if (descriptionEl.value) {
@@ -153,24 +159,26 @@ watch(podcastId, async id => {
   } finally {
     loading.value = false
   }
-})
+}
 
 const maybeExpandDescription = () => {
-  if (!description.overflown) {
+  if (!description.overflown || !descriptionEl.value) {
     return
   }
+
   description.expanded = !description.expanded
-  descriptionEl.value!.classList.toggle('line-clamp-3')
+  descriptionEl.value.classList.toggle('line-clamp-3')
 }
 
-const requestContextMenu = (event: MouseEvent) => {
-  eventBus.emit('PODCAST_CONTEXT_MENU_REQUESTED', event, podcast.value!)
-}
+const requestContextMenu = (event: MouseEvent) => openContextMenu<'PODCAST'>(ContextMenu, event, {
+  podcast: podcast.value!,
+})
 
 const descriptionTooltip = computed(() => {
   if (!description.overflown) {
     return ''
   }
+
   return description.expanded ? 'Collapse' : 'Expand'
 })
 
@@ -192,7 +200,7 @@ const currentPlayingItemIsPartOfPodcast = computed(() => {
   const currentPlayable = queueStore.current
   return currentPlayable
     && isEpisode(currentPlayable)
-    && currentPlayable.podcast_id === podcastId.value
+    && currentPlayable.podcast_id === podcast.value?.id
 })
 
 const podcastPlaying = computed(() => {
@@ -252,7 +260,7 @@ const refresh = async () => {
   loading.value = true
 
   try {
-    episodes.value = await episodeStore.fetchEpisodesInPodcast(podcastId.value!, true)
+    episodes.value = await episodeStore.fetchEpisodesInPodcast(podcast.value!.id, true)
   } catch (error: unknown) {
     handleHttpError(error)
   } finally {
@@ -276,13 +284,13 @@ const onListScroll = (e: Event) => {
 
 const toggleFavorite = () => podcastStore.toggleFavorite(podcast.value!)
 
-onScreenActivated('Podcast', () => (podcastId.value = getRouteParam('id')!))
+onMounted(() => init())
 
-eventBus.on('PODCAST_UNSUBSCRIBED', ({ id }) => id === podcastId.value && go(url('podcasts.index')))
+eventBus.on('PODCAST_UNSUBSCRIBED', ({ id }) => id === podcast.value?.id && go(url('podcasts.index')))
 </script>
 
 <style scoped lang="postcss">
 :deep(.items-wrapper) {
-  @apply divide-y divide-k-border;
+  @apply divide-y divide-k-fg-10;
 }
 </style>

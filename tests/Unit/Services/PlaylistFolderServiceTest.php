@@ -28,12 +28,12 @@ class PlaylistFolderServiceTest extends TestCase
     {
         $user = create_user();
 
-        self::assertCount(0, $user->playlist_folders);
+        self::assertCount(0, $user->playlistFolders);
 
         $this->service->createFolder($user, 'Classical');
 
-        self::assertCount(1, $user->refresh()->playlist_folders);
-        self::assertSame('Classical', $user->playlist_folders[0]->name);
+        self::assertCount(1, $user->refresh()->playlistFolders);
+        self::assertSame('Classical', $user->playlistFolders[0]->name);
     }
 
     #[Test]
@@ -64,16 +64,15 @@ class PlaylistFolderServiceTest extends TestCase
     #[Test]
     public function aPlaylistCannotBelongToMultipleFoldersByOneUser(): void
     {
-        $user = create_user();
+        $playlist = create_playlist();
 
         /** @var PlaylistFolder $existingFolder */
-        $existingFolder = PlaylistFolder::factory()->for($user)->create();
+        $existingFolder = PlaylistFolder::factory()->for($playlist->owner)->create();
 
-        $playlist = create_playlist(owner: $user);
         $existingFolder->playlists()->attach($playlist);
 
         /** @var PlaylistFolder $newFolder */
-        $newFolder = PlaylistFolder::factory()->for($user)->create();
+        $newFolder = PlaylistFolder::factory()->for($playlist->owner)->create();
 
         $this->service->addPlaylistsToFolder($newFolder, [$playlist->id]);
 
@@ -83,16 +82,14 @@ class PlaylistFolderServiceTest extends TestCase
     #[Test]
     public function aPlaylistCanBelongToMultipleFoldersFromDifferentUsers(): void
     {
-        $user = create_user();
-
         /** @var PlaylistFolder $existingFolderFromAnotherUser */
         $existingFolderFromAnotherUser = PlaylistFolder::factory()->create();
 
-        $playlist = create_playlist(owner: $user);
+        $playlist = create_playlist();
         $existingFolderFromAnotherUser->playlists()->attach($playlist);
 
         /** @var PlaylistFolder $newFolder */
-        $newFolder = PlaylistFolder::factory()->for($user)->create();
+        $newFolder = PlaylistFolder::factory()->for($playlist->owner)->create();
 
         $this->service->addPlaylistsToFolder($newFolder, [$playlist->id]);
 

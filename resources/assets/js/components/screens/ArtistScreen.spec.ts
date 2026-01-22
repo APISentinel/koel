@@ -1,18 +1,22 @@
 import { screen, waitFor } from '@testing-library/vue'
-import { describe, expect, it } from 'vitest'
+import type { Mock } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createHarness } from '@/__tests__/TestHarness'
 import { artistStore } from '@/stores/artistStore'
 import { commonStore } from '@/stores/commonStore'
 import { playableStore } from '@/stores/playableStore'
 import { eventBus } from '@/utils/eventBus'
-import { resourcePermissionService } from '@/services/resourcePermissionService'
+import { acl } from '@/services/acl'
 import Router from '@/router'
+import { useContextMenu } from '@/composables/useContextMenu'
+import { assertOpenContextMenu } from '@/__tests__/assertions'
+import ArtistContextMenu from '@/components/artist/ArtistContextMenu.vue'
 import Component from './ArtistScreen.vue'
 
 describe('artistScreen.vue', () => {
   const h = createHarness({
     beforeEach: () => {
-      h.mock(resourcePermissionService, 'check').mockResolvedValue(true)
+      h.mock(acl, 'checkResourcePermission').mockResolvedValue(true)
     },
   })
 
@@ -23,7 +27,6 @@ describe('artistScreen.vue', () => {
     commonStore.state.uses_last_fm = true
 
     artist = artist || h.factory('artist', {
-      id: 'foo',
       name: 'Led Zeppelin',
     })
 
@@ -32,15 +35,7 @@ describe('artistScreen.vue', () => {
     const songs = h.factory('song', 13)
     const fetchSongsMock = h.mock(playableStore, 'fetchSongsForArtist').mockResolvedValue(songs)
 
-    await h.router.activateRoute({
-      path: `artists/${artist.id}/${tab}`,
-      screen: 'Artist',
-    }, {
-      tab,
-      id: artist.id,
-    })
-
-    const rendered = h.render(Component, {
+    const rendered = h.visit(`artists/${artist.id}/${tab}`).render(Component, {
       global: {
         stubs: {
           ArtistInfo: h.stub('artist-info'),
@@ -118,12 +113,13 @@ describe('artistScreen.vue', () => {
   })
 
   it('requests Actions menu', async () => {
+    vi.mock('@/composables/useContextMenu')
+    const { openContextMenu } = useContextMenu()
     const { artist } = await renderComponent()
-    const emitMock = h.mock(eventBus, 'emit')
 
     await waitFor(async () => {
       await h.user.click(screen.getByRole('button', { name: 'More Actions' }))
-      expect(emitMock).toHaveBeenCalledWith('ARTIST_CONTEXT_MENU_REQUESTED', expect.any(MouseEvent), artist)
+      await assertOpenContextMenu(openContextMenu as Mock, ArtistContextMenu, { artist })
     })
   })
 })

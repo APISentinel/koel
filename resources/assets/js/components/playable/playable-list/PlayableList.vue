@@ -1,14 +1,14 @@
 <template>
   <div
     ref="wrapper"
-    class="song-list-wrap relative flex flex-col flex-1 overflow-auto py-0 px-3 md:p-0"
+    class="playable-list-wrap relative flex flex-col flex-1 overflow-auto py-0"
     data-testid="song-list"
     tabindex="0"
     @keydown.delete.prevent.stop="handleDelete"
     @keydown.enter.prevent.stop="handleEnter"
     @keydown.a.prevent="selectAllWithKeyboard"
   >
-    <PlayableListHeader :content-type="contentType" @sort="sort" />
+    <PlayableListHeader v-if="config.hasHeader" :content-type="contentType" @sort="sort" />
 
     <VirtualScroller
       v-slot="{ item }: { item: PlayableRow }"
@@ -25,7 +25,7 @@
         @dragleave="onDragLeave"
         @dragstart="onDragStart(item, $event)"
         @play="onPlay(item.playable)"
-        @contextmenu.prevent="openContextMenu(item, $event)"
+        @contextmenu.prevent="onContextMenu(item, $event)"
         @dragover.prevent="onDragOver"
         @drop.prevent="onDrop(item, $event)"
         @dragend.prevent="onDragEnd"
@@ -39,8 +39,7 @@ import { findIndex, throttle } from 'lodash'
 import isMobile from 'ismobilejs'
 import type { Ref } from 'vue'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
-import { eventBus } from '@/utils/eventBus'
-import { requireInjection } from '@/utils/helpers'
+import { defineAsyncComponent, requireInjection } from '@/utils/helpers'
 import { getPlayableCollectionContentType } from '@/utils/typeGuards'
 import { preferenceStore as preferences } from '@/stores/preferenceStore'
 import { queueStore } from '@/stores/queueStore'
@@ -48,6 +47,7 @@ import { useDraggable, useDroppable } from '@/composables/useDragAndDrop'
 import { useListSelection } from '@/composables/useListSelection'
 import { playback } from '@/services/playbackManager'
 import { useSwipeDirection } from '@/composables/useSwipeDirection'
+import { useContextMenu } from '@/composables/useContextMenu'
 
 import {
   FilteredPlayablesKey,
@@ -70,8 +70,11 @@ const emit = defineEmits<{
   (e: 'scrolled-to-end'): void
 }>()
 
+const PlayableContextMenu = defineAsyncComponent(() => import('@/components/playable/PlayableContextMenu.vue'))
+
 const { startDragging } = useDraggable('playables')
 const { getDroppedData, acceptsDrop } = useDroppable(['playables'])
+const { openContextMenu } = useContextMenu()
 
 const [playables] = requireInjection<[Ref<Playable[]>]>(FilteredPlayablesKey)
 const [selectedPlayables, setSelectedPlayables] = requireInjection<[Ref<Playable[]>, Closure]>(SelectedPlayablesKey)
@@ -227,24 +230,32 @@ const onClick = (row: PlayableRow, event: MouseEvent) => {
   }
 }
 
-const openContextMenu = async (row: PlayableRow, event: MouseEvent) => {
+const onContextMenu = async (row: PlayableRow, event: MouseEvent) => {
   if (!isSelected(row)) {
     clearSelection()
     toggleSelected(row)
 
-    // await a next tick so that the selected items are collected properly
+    // await a tick so that the selected items are collected properly
     await nextTick()
   }
 
-  eventBus.emit('PLAYABLE_CONTEXT_MENU_REQUESTED', event, selectedPlayables.value)
+  openContextMenu<'PLAYABLES'>(PlayableContextMenu, event, {
+    playables: selectedPlayables.value,
+  })
 }
 
 const onPlay = async (playable: Playable) => {
-  if (shouldTriggerContinuousPlayback.value) {
-    queueStore.replaceQueueWith(getAllPlayablesWithSort())
-  }
+  if (playable.playback_state === 'Stopped') {
+    if (shouldTriggerContinuousPlayback.value) {
+      queueStore.replaceQueueWith(getAllPlayablesWithSort())
+    }
 
-  await playback().play(playable)
+    await playback().play(playable)
+  } else if (playable.playback_state === 'Paused') {
+    await playback().resume()
+  } else {
+    await playback().pause()
+  }
 }
 
 const discIndexMap = computed(() => {
@@ -299,7 +310,7 @@ onMounted(() => render())
 </script>
 
 <style lang="postcss">
-.song-list-wrap {
+.playable-list-wrap {
   .virtual-scroller {
     @apply flex-1;
   }
@@ -354,7 +365,7 @@ onMounted(() => render())
   }
 
   .song-list-header {
-    @apply tracking-widest uppercase cursor-pointer text-k-text-secondary;
+    @apply tracking-widest uppercase cursor-pointer text-k-fg-70;
 
     .extra {
       @apply px-0;

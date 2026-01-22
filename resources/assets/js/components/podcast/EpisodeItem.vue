@@ -1,13 +1,13 @@
 <template>
   <a
     data-testid="episode-item"
-    class="group relative flex flex-col md:flex-row gap-4 px-6 py-5 !text-k-text-primary hover:bg-white/10 duration-200"
+    class="group relative flex flex-col md:flex-row gap-4 px-6 py-5 !text-k-fg hover:bg-k-fg-10 duration-200"
     :class="isCurrentEpisode && 'current'"
     :href="url('episodes.show', { id: episode.id })"
     @contextmenu.prevent="requestContextMenu"
     @dragstart="onDragStart"
   >
-    <Icon v-if="isCurrentEpisode" :icon="faBookmark" size="xl" class="absolute -top-1 right-3 text-k-accent" />
+    <Icon v-if="isCurrentEpisode" :icon="faBookmark" size="xl" class="absolute -top-1 right-3 text-k-highlight" />
     <button
       class="hidden md:block md:flex-[0_0_128px] relative overflow-hidden rounded-lg active:scale-95"
       data-testid="play-button"
@@ -33,7 +33,7 @@
       <time
         :datetime="episode.created_at"
         :title="episode.created_at"
-        class="block uppercase text-sm mb-1 text-k-text-secondary"
+        class="block uppercase text-sm mb-1 text-k-fg-70"
       >
         {{ publicationDateForHumans }}
       </time>
@@ -49,10 +49,10 @@
         />
       </h3>
 
-      <div class="description text-k-text-secondary mt-3 line-clamp-3" v-html="description" />
+      <div class="description mt-3 line-clamp-3 text-k-fg-70" v-html="description" />
     </div>
-    <div class="md:flex-[0_0_122px] text-sm text-k-text-secondary flex md:flex-col items-center justify-center w-full">
-      <span class="block md:mb-2">{{ timeLeft ? timeLeft : 'Played' }}</span>
+    <div class="md:flex-[0_0_122px] text-sm flex md:flex-col items-center justify-center w-full">
+      <span class="block md:mb-2 text-k-fg-70">{{ timeLeft ? timeLeft : 'Played' }}</span>
       <div class="px-4 flex-1 md:flex-grow-0 md:w-full">
         <EpisodeProgress v-if="shouldShowProgress" :episode="episode" :position="currentPosition" />
       </div>
@@ -64,8 +64,7 @@
 import DOMPurify from 'dompurify'
 import { orderBy } from 'lodash'
 import { faBookmark, faPause, faPlay } from '@fortawesome/free-solid-svg-icons'
-import { computed, defineAsyncComponent, toRefs } from 'vue'
-import { eventBus } from '@/utils/eventBus'
+import { computed, toRefs } from 'vue'
 import { secondsToHumanReadable } from '@/utils/formatters'
 import { useDraggable } from '@/composables/useDragAndDrop'
 import { formatTimeAgo } from '@vueuse/core'
@@ -74,16 +73,18 @@ import { queueStore } from '@/stores/queueStore'
 import { preferenceStore as preferences } from '@/stores/preferenceStore'
 import { useRouter } from '@/composables/useRouter'
 import { playback } from '@/services/playbackManager'
-
-import FavoriteButton from '@/components/ui/FavoriteButton.vue'
+import { defineAsyncComponent } from '@/utils/helpers'
+import { useContextMenu } from '@/composables/useContextMenu'
 
 const props = defineProps<{ episode: Episode, podcast: Podcast }>()
-
+const PlayableContextMenu = defineAsyncComponent(() => import('@/components/playable/PlayableContextMenu.vue'))
 const EpisodeProgress = defineAsyncComponent(() => import('@/components/podcast/EpisodeProgress.vue'))
+const FavoriteButton = defineAsyncComponent(() => import('@/components/ui/FavoriteButton.vue'))
 
 const { episode, podcast } = toRefs(props)
 
 const { startDragging } = useDraggable('playables')
+const { openContextMenu } = useContextMenu()
 const { url } = useRouter()
 
 const publicationDateForHumans = computed(() => {
@@ -115,7 +116,10 @@ const isCurrentEpisode = computed(() => podcast.value.state.current_episode === 
 const description = computed(() => DOMPurify.sanitize(episode.value.episode_description))
 
 const onDragStart = (event: DragEvent) => startDragging(event, episode.value)
-const requestContextMenu = (event: MouseEvent) => eventBus.emit('PLAYABLE_CONTEXT_MENU_REQUESTED', event, episode.value)
+
+const requestContextMenu = (event: MouseEvent) => openContextMenu<'PLAYABLES'>(PlayableContextMenu, event, {
+  playables: [episode.value],
+})
 
 const isPlaying = computed(() => episode.value.playback_state === 'Playing')
 
@@ -145,7 +149,7 @@ const toggleFavorite = () => episodeStore.toggleFavorite(episode.value)
   }
 
   :deep(a) {
-    @apply text-k-text-primary hover:text-k-accent;
+    @apply text-k-fg hover:text-k-highlight;
   }
 }
 </style>

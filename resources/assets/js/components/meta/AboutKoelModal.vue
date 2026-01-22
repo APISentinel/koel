@@ -1,18 +1,18 @@
 <template>
   <div
     v-koel-focus
-    class="about text-k-text-secondary text-center max-w-[480px] overflow-hidden relative"
+    class="about text-center max-w-[480px] overflow-hidden relative"
     data-testid="about-koel"
     tabindex="0"
     @keydown.esc="close"
   >
     <main class="p-6">
       <div class="mb-4">
-        <img alt="Koel's logo" class="inline-block" src="@/../img/logo.svg" width="128">
+        <img alt="Logo" class="inline-block" :src="logo" width="128">
       </div>
 
       <div class="current-version">
-        Koel {{ currentVersion }}
+        {{ appName }} {{ currentVersion }}
         <span v-if="isPlus" class="badge">Plus</span>
         <span v-else>Community</span>
         Edition
@@ -23,7 +23,7 @@
         </p>
 
         <template v-else>
-          <p v-if="isAdmin" class="py-3">
+          <p v-if="currentUserCan.manageSettings()" class="py-3">
             <!-- close the modal first to prevent it from overlapping Lemonsqueezy's overlay -->
             <BtnUpgradeToPlus class="!w-auto inline-block !px-6" @click.prevent="showPlusModal" />
           </p>
@@ -32,17 +32,15 @@
 
       <p v-if="shouldNotifyNewVersion" data-testid="new-version-about">
         <a :href="latestVersionReleaseUrl" target="_blank">
-          A new version of Koel is available ({{ latestVersion }})!
+          A new version of {{ appName }} is available ({{ latestVersion }})!
         </a>
       </p>
 
-      <p class="author">
+      <p v-if="!hasCustomBranding" class="author">
         Made with ❤️ by
         <a href="https://github.com/phanan" rel="noopener" target="_blank">Phan An</a>
-        and quite a few
-        <a href="https://github.com/koel/core/graphs/contributors" rel="noopener" target="_blank">awesome</a>&nbsp;<a
-          href="https://github.com/koel/koel/graphs/contributors" rel="noopener" target="_blank"
-        >contributors</a>.
+        and quite a few awesome
+        <a href="https://github.com/koel/koel/graphs/contributors" rel="noopener" target="_blank">contributors</a>.
       </p>
 
       <CreditsBlock v-if="isDemo" />
@@ -62,17 +60,18 @@
 </template>
 
 <script lang="ts" setup>
-import { useAuthorization } from '@/composables/useAuthorization'
 import { useKoelPlus } from '@/composables/useKoelPlus'
 import { useNewVersionNotification } from '@/composables/useNewVersionNotification'
 import { eventBus } from '@/utils/eventBus'
+import { usePolicies } from '@/composables/usePolicies'
+import { useBranding } from '@/composables/useBranding'
 
 import Btn from '@/components/ui/form/Btn.vue'
 import BtnUpgradeToPlus from '@/components/koel-plus/BtnUpgradeToPlus.vue'
 import CreditsBlock from '@/components/meta/CreditsBlock.vue'
 
 const emit = defineEmits<{ (e: 'close'): void }>()
-
+const { name: appName, logo, hasCustomBranding } = useBranding()
 const {
   shouldNotifyNewVersion,
   currentVersion,
@@ -81,7 +80,7 @@ const {
 } = useNewVersionNotification()
 
 const { isPlus, license } = useKoelPlus()
-const { isAdmin } = useAuthorization()
+const { currentUserCan } = usePolicies()
 
 const close = () => emit('close')
 
@@ -99,7 +98,7 @@ p {
 }
 
 a {
-  @apply text-k-text-primary hover:text-k-accent;
+  @apply text-k-fg hover:text-k-highlight;
 }
 
 .plus-badge {

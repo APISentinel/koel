@@ -19,18 +19,20 @@
     color-scheme: dark;
   }
 
-  ::placeholder {
-    @apply text-black/5;
+  input,
+  textarea {
+    @apply placeholder:text-k-fg-50;
   }
 
   body,
   html {
-    @mixin themed-background;
+    @mixin themed-background {
+    }
 
     font-family: var(--font-family);
     font-size: var(--font-size);
 
-    @apply text-k-text-primary font-light leading-6 overflow-hidden;
+    @apply h-screen text-k-fg font-light leading-6 overflow-hidden;
   }
 
   input,
@@ -53,26 +55,26 @@
   }
 
   a {
-    @apply no-underline cursor-pointer focus:text-k-accent;
+    @apply no-underline cursor-pointer focus:text-k-highlight;
 
     /** Set the attributes manually to allow for inline overriding, which wouldn't be possible with @apply. */
-    color: var(--color-text-primary);
+    color: var(--color-fg);
 
     &:hover {
-      color: var(--color-accent);
+      color: var(--color-highlight);
     }
-  }
-
-  :root {
-    --fade-size: 3rem;
   }
 
   button,
   [role='button'] {
-    @apply touch-manipulation select-none cursor-pointer focus-visible:outline-1 focus-visible:outline-k-accent;
+    @apply touch-manipulation select-none cursor-pointer focus-visible:outline-1 focus-visible:outline-k-highlight;
   }
 
   * {
-    @apply focus-visible:ring-0 focus-visible:outline-1 focus-visible:outline-k-accent;
+    @apply focus-visible:ring-0 focus-visible:outline-1 focus-visible:outline-k-highlight;
+
+    &::selection {
+      @apply bg-k-highlight text-k-highlight-fg;
+    }
   }
 }

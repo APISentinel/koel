@@ -4,7 +4,6 @@ import { createHarness } from '@/__tests__/TestHarness'
 import { genreStore } from '@/stores/genreStore'
 import { playableStore } from '@/stores/playableStore'
 import Component from './GenreScreen.vue'
-import { eventBus } from '@/utils/eventBus'
 
 describe('genreScreen', () => {
   const h = createHarness()
@@ -18,12 +17,7 @@ describe('genreScreen', () => {
       songs: songs || h.factory('song', 13),
     })
 
-    await h.router.activateRoute({
-      path: `genres/${genre.id}`,
-      screen: 'Genre',
-    }, { id: genre.id })
-
-    const rendered = h.render(Component, {
+    const rendered = h.visit(`genres/${genre.id}`).render(Component, {
       global: {
         stubs: {
           SongList: h.stub('song-list'),
@@ -51,15 +45,5 @@ describe('genreScreen', () => {
   it('renders the song list', async () => {
     await renderComponent()
     expect(screen.getByTestId('song-list')).toBeTruthy()
-  })
-
-  it('requests Actions menu', async () => {
-    const { genre } = await renderComponent()
-    const emitMock = h.mock(eventBus, 'emit')
-
-    await waitFor(async () => {
-      await h.user.click(screen.getByRole('button', { name: 'More Actions' }))
-      expect(emitMock).toHaveBeenCalledWith('GENRE_CONTEXT_MENU_REQUESTED', expect.any(MouseEvent), genre)
-    })
   })
 })

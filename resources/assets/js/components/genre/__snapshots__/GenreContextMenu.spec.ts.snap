@@ -1,11 +1,21 @@
-// Vitest Snapshot v1
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`genreContextMenu.vue > renders 1`] = `
-<nav data-v-6396fbf0="" class="genre-menu menu context-menu select-none shadow" style="top: 42px; left: 420px; bottom: auto; right: auto;" tabindex="0" data-testid="genre-context-menu">
-  <ul data-v-6396fbf0="">
-    <li>Play</li>
-    <li>Shuffle</li>
-    <li>Add to Queue</li>
-  </ul>
-</nav>
+<ul>
+  <li class="focus:outline-none focus:bg-k-highlight focus:text-k-highlight-fg hover:bg-k-highlight hover:text-k-highlight-fg" tabindex="-1">
+    <!--v-if--><span class="label flex-1 overflow-hidden max-w-40 text-ellipsis">Play</span>
+    <!--v-if-->
+    <!--v-if-->
+  </li>
+  <li class="focus:outline-none focus:bg-k-highlight focus:text-k-highlight-fg hover:bg-k-highlight hover:text-k-highlight-fg" tabindex="-1">
+    <!--v-if--><span class="label flex-1 overflow-hidden max-w-40 text-ellipsis">Shuffle</span>
+    <!--v-if-->
+    <!--v-if-->
+  </li>
+  <li class="focus:outline-none focus:bg-k-highlight focus:text-k-highlight-fg hover:bg-k-highlight hover:text-k-highlight-fg" tabindex="-1">
+    <!--v-if--><span class="label flex-1 overflow-hidden max-w-40 text-ellipsis">Add to Queue</span>
+    <!--v-if-->
+    <!--v-if-->
+  </li>
+</ul>
 `;

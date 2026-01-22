@@ -1,11 +1,11 @@
 # Artist, Album, and Playlist Arts
 
-If [integrated](../service-integrations) with Spotify, Koel will attempt to fetch artists' images and album arts from Spotify
-whenever a song is played. 
+If [integrated](../service-integrations) Koel will attempt to fetch artists' images and album arts from Spotify,
+Last.fm, or MusicBrainz/Wikipedia whenever a song is played. You can upload custom images for artists, albums, and
+playlists via the corresponding edit form.
 
-You can upload custom images for artists, albums, and playlists. 
-To do so, drag and drop an image file onto the artist, album, or playlist thumbnail.
+If there is no image available for an artist or album, Koel will use a default image (the Koel bird logo).
+For a playlist, a random "thumbnail stack" will be generated and used based on the tracks.
 
-If there is no available for artist and album, Koel will use a default image (the Koel bird logo). 
-For a playlist, a random "thumbnail stack" will be generated and used based on the content.
-
+Newer versions of Koel also provide a [command](../cli-commands.md#koel-fetch-artwork) to fetch missing artist and
+album arts.

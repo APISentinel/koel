@@ -35,13 +35,7 @@
         />
         <template #help>Min. 10 characters. Should be a mix of characters, numbers, and symbols.</template>
       </FormRow>
-      <FormRow>
-        <div>
-          <CheckBox v-model="data.is_admin" name="is_admin" />
-          User is an admin
-          <TooltipIcon title="Admins can perform administrative tasks like managing users and uploading songs." />
-        </div>
-      </FormRow>
+      <RolePicker v-model="data.role" />
     </main>
 
     <footer>
@@ -57,28 +51,27 @@ import type { UpdateUserData } from '@/stores/userStore'
 import { userStore } from '@/stores/userStore'
 import { useDialogBox } from '@/composables/useDialogBox'
 import { useMessageToaster } from '@/composables/useMessageToaster'
-import { useModal } from '@/composables/useModal'
 import { useForm } from '@/composables/useForm'
 
 import Btn from '@/components/ui/form/Btn.vue'
-import TooltipIcon from '@/components/ui/TooltipIcon.vue'
-import CheckBox from '@/components/ui/form/CheckBox.vue'
 import AlertBox from '@/components/ui/AlertBox.vue'
 import TextInput from '@/components/ui/form/TextInput.vue'
 import FormRow from '@/components/ui/form/FormRow.vue'
+import RolePicker from '@/components/user/RolePicker.vue'
 
+const props = defineProps<{ user: User }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
+
+const { user } = props
 
 const { toastSuccess } = useMessageToaster()
 const { showConfirmDialog } = useDialogBox()
 
 const close = () => emit('close')
 
-const user = useModal().getFromContext<User>('user')
-
 const { data, isPristine, handleSubmit } = useForm<UpdateUserData>({
   initialValues: {
-    ...pick(user, 'name', 'email', 'is_admin'),
+    ...pick(user, 'name', 'email', 'role'),
     password: '',
   },
   onSubmit: async data => {

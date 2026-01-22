@@ -164,16 +164,15 @@
 
 <script lang="ts" setup>
 import { computed, ref } from 'vue'
-import defaultCover from '@/../img/covers/default.svg'
 import { pluralize } from '@/utils/formatters'
 import { eventBus } from '@/utils/eventBus'
 import type { SongUpdateData, SongUpdateResult } from '@/stores/playableStore'
 import { playableStore as songStore } from '@/stores/playableStore'
 import { useDialogBox } from '@/composables/useDialogBox'
 import { useMessageToaster } from '@/composables/useMessageToaster'
-import { useModal } from '@/composables/useModal'
 import { genres } from '@/config/genres'
 import { useForm } from '@/composables/useForm'
+import { useBranding } from '@/composables/useBranding'
 
 import Btn from '@/components/ui/form/Btn.vue'
 import TextInput from '@/components/ui/form/TextInput.vue'
@@ -185,15 +184,19 @@ import TabButton from '@/components/ui/tabs/TabButton.vue'
 import TabPanel from '@/components/ui/tabs/TabPanel.vue'
 import TabPanelContainer from '@/components/ui/tabs/TabPanelContainer.vue'
 
+const props = withDefaults(defineProps<{ songs: Song[], initialTab?: EditSongFormTabName }>(), {
+  initialTab: 'details',
+})
+
 const emit = defineEmits<{ (e: 'close'): void }>()
+const songs = props.songs
+const currentTab = ref(props.initialTab)
+
 const close = () => emit('close')
 
 const { toastSuccess } = useMessageToaster()
 const { showConfirmDialog } = useDialogBox()
-const { getFromContext } = useModal()
-
-const songs = getFromContext<Song[]>('songs')
-const currentTab = ref(getFromContext<EditSongFormTabName>('initialTab'))
+const { cover: defaultCover } = useBranding()
 
 const editingOnlyOneSong = songs.length === 1
 const editingMultipleSongs = !editingOnlyOneSong
@@ -258,6 +261,6 @@ const maybeClose = async () => {
 
 <style lang="postcss" scoped>
 .mixed {
-  @apply opacity-50;
+  @apply text-k-fg-50;
 }
 </style>

@@ -1,5 +1,5 @@
 <template>
-  <section class="text-k-text-secondary">
+  <section>
     <h3 class="text-2xl mb-2 flex items-center gap-2">
       <span class="mr-2 text-[#1db954]">
         <img :src="musicbrainzLogo" alt="MusicBrainz Logo" height="20" width="20">
@@ -10,14 +10,14 @@
     <div v-if="useMusicBrainz">
       <p>
         MusicBrainz integration is enabled.
-        Koel will attempt to retrieve album and artist information from MusicBrainz (and Wikipedia) when a song is
-        played, if needed.
+        {{ appName }} will attempt to retrieve album and artist information from MusicBrainz (and Wikipedia)
+        when a song is played, if needed.
       </p>
     </div>
     <div v-else>
       <p>
         MusicBrainz integration is not enabled.
-        <span v-if="isAdmin" data-testid="spotify-admin-instruction">
+        <span v-if="currentUserCan.manageSettings()" data-testid="spotify-admin-instruction">
           Check
           <a href="https://docs.koel.dev/service-integrations#musicbrainz-wikipedia" target="_blank">Documentation</a>
           for integration instructions.
@@ -30,9 +30,11 @@
 <script lang="ts" setup>
 import musicbrainzLogo from '@/../img/logos/musicbrainz.svg'
 
-import { useAuthorization } from '@/composables/useAuthorization'
 import { useThirdPartyServices } from '@/composables/useThirdPartyServices'
+import { usePolicies } from '@/composables/usePolicies'
+import { useBranding } from '@/composables/useBranding'
 
-const { isAdmin } = useAuthorization()
+const { currentUserCan } = usePolicies()
 const { useMusicBrainz } = useThirdPartyServices()
+const { name: appName } = useBranding()
 </script>

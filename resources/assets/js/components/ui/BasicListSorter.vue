@@ -3,7 +3,7 @@
     <button
       ref="button"
       :title="title"
-      class="border px-3 rounded-md h-full border-white/10 w-full focus:text-k-highlight text-k-text-secondary active:text-white focus:text-white"
+      class="border px-3 rounded-md h-full border-k-fg-10 w-full focus:text-k-fg hover:text-k-fg active:text-k-fg"
       @click.stop="triggerDropdown"
     >
       <span class="mr-2">{{ currentLabel }}</span>
@@ -16,11 +16,11 @@
           :key="item.label"
           :class="isCurrentField(item.field) && 'active'"
           :title="`Sort by ${item.label}`"
-          class="cursor-pointer flex justify-between"
+          class="cursor-pointer group flex justify-between"
           @click="sort(item.field)"
         >
           <span>{{ item.label }}</span>
-          <span v-if="isCurrentField(item.field)" class="opacity-80">
+          <span v-if="isCurrentField(item.field)" class="text-k-fg group-hover:text-k-highlight-fg">
             <Icon v-if="order === 'asc'" :icon="faArrowUp" />
             <Icon v-else :icon="faArrowDown" />
           </span>

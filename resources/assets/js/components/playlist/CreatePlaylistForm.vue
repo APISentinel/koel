@@ -3,9 +3,7 @@
     <header>
       <h1>
         New Playlist
-        <span v-if="playables.length" class="text-k-text-secondary" data-testid="from-playables">
-          from {{ pluralize(playables, entityName) }}
-        </span>
+        <span v-if="playables.length" data-testid="from-playables">from {{ pluralize(playables, entityName) }}</span>
       </h1>
     </header>
 
@@ -19,7 +17,7 @@
           <template #label>Folder</template>
           <SelectBox v-model="data.folder_id">
             <option :value="null" />
-            <option v-for="folder in folders" :key="folder.id" :value="folder.id">{{ folder.name }}</option>
+            <option v-for="{ id, name } in folders" :key="id" :value="id">{{ name }}</option>
           </SelectBox>
         </FormRow>
         <FormRow class="col-span-2">
@@ -31,23 +29,7 @@
             placeholder="Some optional description"
           />
         </FormRow>
-        <div class="flex cols-span-2 gap-3 items-center">
-          <span v-if="data.cover" class="w-24 h-24 aspect-square relative">
-            <img :src="data.cover" alt="Cover" class="w-24 h-24 rounded object-cover">
-            <button
-              type="button"
-              class="absolute inset-0 opacity-0 hover:opacity-100 bg-black/70 active:bg-black/85 active:text-[.9rem] transition-opacity"
-              @click.prevent="data.cover = null"
-            >
-              Remove
-            </button>
-          </span>
-          <div class="flex-1">
-            <FileInput v-if="!data.cover" accept="image/*" name="cover" @change="onImageInputChange">
-              Pick a cover (optional)
-            </FileInput>
-          </div>
-        </div>
+        <ArtworkField v-model="data.cover">Pick a cover (optional)</ArtworkField>
       </div>
     </main>
 
@@ -68,27 +50,28 @@ import { pluralize } from '@/utils/formatters'
 import { useRouter } from '@/composables/useRouter'
 import { useDialogBox } from '@/composables/useDialogBox'
 import { useMessageToaster } from '@/composables/useMessageToaster'
-import { useModal } from '@/composables/useModal'
 import { useForm } from '@/composables/useForm'
-import { useImageFileInput } from '@/composables/useImageFileInput'
 
 import Btn from '@/components/ui/form/Btn.vue'
 import TextInput from '@/components/ui/form/TextInput.vue'
 import FormRow from '@/components/ui/form/FormRow.vue'
 import SelectBox from '@/components/ui/form/SelectBox.vue'
 import TextArea from '@/components/ui/form/TextArea.vue'
-import FileInput from '@/components/ui/form/FileInput.vue'
+import ArtworkField from '@/components/ui/form/ArtworkField.vue'
+
+const props = withDefaults(defineProps<{ playables: Playable[], folder?: PlaylistFolder | null }>(), {
+  playables: () => [],
+})
 
 const emit = defineEmits<{ (e: 'close'): void }>()
+
+const { playables, folder: targetFolder } = props
 
 const { toastSuccess } = useMessageToaster()
 const { showConfirmDialog } = useDialogBox()
 const { go, url } = useRouter()
-const { getFromContext } = useModal()
 
 const folders = toRef(playlistFolderStore.state, 'folders')
-const targetFolder = getFromContext<PlaylistFolder | null>('folder') ?? null
-const playables = getFromContext<Playable[]>('playables') ?? []
 
 const close = () => emit('close')
 
@@ -105,10 +88,6 @@ const { data, isPristine, handleSubmit } = useForm<CreatePlaylistData>({
     toastSuccess(`Playlist "${playlist.name}" created.`)
     go(url('playlists.show', { id: playlist.id }))
   },
-})
-
-const { onImageInputChange } = useImageFileInput({
-  onImageDataUrl: dataUrl => (data.cover = dataUrl),
 })
 
 const entityName = computed(() => {

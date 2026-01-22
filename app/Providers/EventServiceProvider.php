@@ -9,7 +9,9 @@ use App\Events\MultipleSongsUnliked;
 use App\Events\NewPlaylistCollaboratorJoined;
 use App\Events\PlaybackStarted;
 use App\Events\SongFavoriteToggled;
+use App\Events\UserUnsubscribedFromPodcast;
 use App\Listeners\DeleteNonExistingRecordsPostScan;
+use App\Listeners\DeletePodcastIfNoSubscribers;
 use App\Listeners\LoveMultipleTracksOnLastfm;
 use App\Listeners\LoveTrackOnLastfm;
 use App\Listeners\MakePlaylistSongsPublic;
@@ -24,6 +26,7 @@ use App\Models\Genre;
 use App\Models\Playlist;
 use App\Models\PlaylistCollaborationToken;
 use App\Models\RadioStation;
+use App\Models\Theme;
 use App\Models\User;
 use App\Observers\AlbumObserver;
 use App\Observers\ArtistObserver;
@@ -32,6 +35,7 @@ use App\Observers\GenreObserver;
 use App\Observers\PlaylistCollaborationTokenObserver;
 use App\Observers\PlaylistObserver;
 use App\Observers\RadioStationObserver;
+use App\Observers\ThemeObserver;
 use App\Observers\UserObserver;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as BaseServiceProvider;
 
@@ -67,6 +71,10 @@ class EventServiceProvider extends BaseServiceProvider
         NewPlaylistCollaboratorJoined::class => [
             MakePlaylistSongsPublic::class,
         ],
+
+        UserUnsubscribedFromPodcast::class => [
+            DeletePodcastIfNoSubscribers::class,
+        ],
     ];
 
     public function boot(): void
@@ -81,5 +89,6 @@ class EventServiceProvider extends BaseServiceProvider
         Genre::observe(GenreObserver::class);
         User::observe(UserObserver::class);
         RadioStation::observe(RadioStationObserver::class);
+        Theme::observe(ThemeObserver::class);
     }
 }

@@ -2,19 +2,20 @@
 
 use App\Facades\YouTube;
 use App\Helpers\Uuid;
+use App\Http\Controllers\API\Acl\CheckResourcePermissionController;
+use App\Http\Controllers\API\Acl\FetchAssignableRolesController;
 use App\Http\Controllers\API\ActivateLicenseController;
 use App\Http\Controllers\API\AlbumController;
-use App\Http\Controllers\API\AlbumCoverController;
 use App\Http\Controllers\API\AlbumSongController;
 use App\Http\Controllers\API\Artist\ArtistAlbumController;
 use App\Http\Controllers\API\Artist\ArtistController;
-use App\Http\Controllers\API\Artist\ArtistImageController;
 use App\Http\Controllers\API\Artist\ArtistSongController;
 use App\Http\Controllers\API\Artist\FetchArtistEventsController;
 use App\Http\Controllers\API\Artist\FetchArtistInformationController;
 use App\Http\Controllers\API\AuthController;
-use App\Http\Controllers\API\CheckResourcePermissionController;
 use App\Http\Controllers\API\DisconnectFromLastfmController;
+use App\Http\Controllers\API\Embed\EmbedController;
+use App\Http\Controllers\API\Embed\EmbedOptionsController;
 use App\Http\Controllers\API\ExcerptSearchController;
 use App\Http\Controllers\API\FavoriteController;
 use App\Http\Controllers\API\FetchAlbumInformationController;
@@ -41,7 +42,6 @@ use App\Http\Controllers\API\PlaylistCollaboration\AcceptPlaylistCollaborationIn
 use App\Http\Controllers\API\PlaylistCollaboration\CreatePlaylistCollaborationTokenController;
 use App\Http\Controllers\API\PlaylistCollaboration\PlaylistCollaboratorController;
 use App\Http\Controllers\API\PlaylistController;
-use App\Http\Controllers\API\PlaylistCoverController;
 use App\Http\Controllers\API\PlaylistFolderController;
 use App\Http\Controllers\API\PlaylistFolderPlaylistController;
 use App\Http\Controllers\API\PlaylistSongController;
@@ -52,16 +52,17 @@ use App\Http\Controllers\API\PrivatizeSongsController;
 use App\Http\Controllers\API\ProfileController;
 use App\Http\Controllers\API\PublicizeSongsController;
 use App\Http\Controllers\API\QueueStateController;
-use App\Http\Controllers\API\Radio\RadioStationController;
-use App\Http\Controllers\API\Radio\RadioStationLogoController;
+use App\Http\Controllers\API\RadioStationController;
 use App\Http\Controllers\API\RegisterPlayController;
 use App\Http\Controllers\API\ResetPasswordController;
 use App\Http\Controllers\API\ScrobbleController;
 use App\Http\Controllers\API\SearchYouTubeController;
 use App\Http\Controllers\API\SetLastfmSessionKeyController;
-use App\Http\Controllers\API\SettingController;
+use App\Http\Controllers\API\Settings\UpdateBrandingController;
+use App\Http\Controllers\API\Settings\UpdateMediaPathController;
 use App\Http\Controllers\API\SongController;
 use App\Http\Controllers\API\SongSearchController;
+use App\Http\Controllers\API\ThemeController;
 use App\Http\Controllers\API\ToggleLikeSongController;
 use App\Http\Controllers\API\UnlikeMultipleSongsController;
 use App\Http\Controllers\API\UpdatePlaybackStatusController;
@@ -76,16 +77,21 @@ use Pusher\Pusher;
 Route::prefix('api')->middleware('api')->group(static function (): void {
     Route::get('ping', static fn () => null);
 
-    Route::post('me', [AuthController::class, 'login'])->name('auth.login');
-    Route::post('me/otp', [AuthController::class, 'loginUsingOneTimeToken']);
+    Route::middleware('throttle:10,1')->group(static function (): void {
+        Route::post('me', [AuthController::class, 'login'])->name('auth.login');
+        Route::post('me/otp', [AuthController::class, 'loginUsingOneTimeToken']);
 
-    Route::delete('me', [AuthController::class, 'logout']);
+        Route::delete('me', [AuthController::class, 'logout']);
 
-    Route::post('forgot-password', ForgotPasswordController::class);
-    Route::post('reset-password', ResetPasswordController::class);
+        Route::post('forgot-password', ForgotPasswordController::class);
+        Route::post('reset-password', ResetPasswordController::class);
 
-    Route::get('invitations', [UserInvitationController::class, 'get']);
-    Route::post('invitations/accept', [UserInvitationController::class, 'accept']);
+        Route::get('invitations', [UserInvitationController::class, 'get']);
+        Route::post('invitations/accept', [UserInvitationController::class, 'accept']);
+
+        Route::get('embeds/{embed}/{options}', [EmbedController::class, 'getPayload'])->name('embeds.payload');
+        Route::post('embed-options', [EmbedOptionsController::class, 'encrypt']);
+    });
 
     Route::middleware('auth')->group(static function (): void {
         Route::get('one-time-token', GetOneTimeTokenController::class);
@@ -111,7 +117,8 @@ Route::prefix('api')->middleware('api')->group(static function (): void {
         Route::get('queue/state', [QueueStateController::class, 'show']);
         Route::put('queue/state', [QueueStateController::class, 'update']);
 
-        Route::put('settings', [SettingController::class, 'update']);
+        Route::put('settings/media-path', UpdateMediaPathController::class);
+        Route::put('settings/branding', UpdateBrandingController::class);
 
         Route::apiResource('albums', AlbumController::class);
         Route::apiResource('albums.songs', AlbumSongController::class);
@@ -173,10 +180,10 @@ Route::prefix('api')->middleware('api')->group(static function (): void {
         Route::get('genres', [GenreController::class, 'index']);
         Route::get('genres/{genre}', [GenreController::class, 'show']);
 
-        Route::apiResource('users', UserController::class);
+        Route::apiResource('users', UserController::class)->except('show');
 
         // User and user profile routes
-        Route::apiResource('user', UserController::class);
+        Route::apiResource('user', UserController::class)->except('show');
         Route::get('me', [ProfileController::class, 'show']);
         Route::put('me', [ProfileController::class, 'update']);
         Route::patch('me/preferences', UpdateUserPreferenceController::class);
@@ -198,10 +205,7 @@ Route::prefix('api')->middleware('api')->group(static function (): void {
         Route::get('artists/{artist}/events', FetchArtistEventsController::class);
 
         // Cover/image routes
-        Route::delete('albums/{album}/cover', [AlbumCoverController::class, 'destroy']);
         Route::get('albums/{album}/thumbnail', FetchAlbumThumbnailController::class);
-        Route::delete('artists/{artist}/image', [ArtistImageController::class, 'destroy']);
-        Route::delete('playlists/{playlist}/cover', [PlaylistCoverController::class, 'destroy']);
 
         // deprecated routes
         Route::get('album/{album}/thumbnail', FetchAlbumThumbnailController::class);
@@ -229,9 +233,6 @@ Route::prefix('api')->middleware('api')->group(static function (): void {
         Route::apiResource('podcasts.episodes', PodcastEpisodeController::class);
         Route::delete('podcasts/{podcast}/subscriptions', UnsubscribeFromPodcastController::class);
 
-        // Resource permission routes
-        Route::get('permissions/{type}/{id}/{action}', CheckResourcePermissionController::class);
-
         // Media browser routes
         Route::get('browse/folders', FetchSubfoldersController::class);
         Route::get('browse/songs', PaginateFolderSongsController::class);
@@ -239,7 +240,18 @@ Route::prefix('api')->middleware('api')->group(static function (): void {
         // Radio station routes
         Route::group(['prefix' => 'radio'], static function (): void {
             Route::apiResource('stations', RadioStationController::class);
-            Route::delete('stations/{radioStation}/logo', [RadioStationLogoController::class, 'destroy']);
+        });
+
+        // Theme routes
+        Route::apiResource('themes', ThemeController::class)->except('show', 'update');
+
+        // Embed routes
+        Route::post('embeds/resolve', [EmbedController::class, 'resolveForEmbeddable']);
+
+        // ACL routes
+        Route::group(['prefix' => 'acl'], static function (): void {
+            Route::get('permissions/{type}/{id}/{action}', CheckResourcePermissionController::class);
+            Route::get('assignable-roles', FetchAssignableRolesController::class);
         });
     });
 

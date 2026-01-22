@@ -6,7 +6,7 @@
   <OfflineNotification v-if="!online" />
 
   <main
-    v-if="layout === 'main' && initialized"
+    v-if="layout === 'default' && initialized"
     class="absolute md:relative top-0 h-full md:h-screen pt-k-header-height md:pt-0 w-full md:w-auto flex flex-col justify-end"
     @dragend="onDragEnd"
     @dragleave="onDragLeave"
@@ -17,26 +17,30 @@
     <MainWrapper />
     <AppFooter />
     <SupportKoel />
-    <ContextMenus />
     <DropZone v-show="showDropZone" @close="showDropZone = false" />
   </main>
 
-  <LoginForm v-if="layout === 'auth'" @loggedin="onUserLoggedIn" />
+  <LoginForm v-if="layout === 'login'" @loggedin="triggerAppInitialization" />
+  <Embed v-if="layout === 'embed'" />
 
   <AcceptInvitation v-if="layout === 'invitation'" />
   <ResetPasswordForm v-if="layout === 'reset-password'" />
 
   <AppInitializer v-if="authenticated" @error="onInitError" @success="onInitSuccess" />
+
+  <ContextMenu />
 </template>
 
 <script lang="ts" setup>
-import { defineAsyncComponent as defineAsyncComponentWithLoadingState } from '@/utils/helpers'
-import { defineAsyncComponent, onMounted, provide, ref, watch } from 'vue'
+import { defineAsyncComponent } from '@/utils/helpers'
+import { computed, onMounted, provide, ref, shallowRef, watch } from 'vue'
 import { useOnline } from '@vueuse/core'
 import { queueStore } from '@/stores/queueStore'
 import { authService } from '@/services/authService'
-import { CurrentStreamableKey, DialogBoxKey, MessageToasterKey, OverlayKey } from '@/symbols'
+import { radioStationStore } from '@/stores/radioStationStore'
+import { ContextMenuKey, CurrentStreamableKey, DialogBoxKey, MessageToasterKey, OverlayKey } from '@/symbols'
 import { useRouter } from '@/composables/useRouter'
+import type { Route } from '@/router'
 
 import DialogBox from '@/components/ui/DialogBox.vue'
 import MessageToaster from '@/components/ui/message-toaster/MessageToaster.vue'
@@ -50,16 +54,16 @@ import AppFooter from '@/components/layout/app-footer/index.vue'
 // GlobalEventListener must NOT be lazy-loaded, so that it can handle LOG_OUT event properly.
 import GlobalEventListeners from '@/components/utils/GlobalEventListeners.vue'
 import AppInitializer from '@/components/utils/AppInitializer.vue'
-import ContextMenus from '@/components/ui/ContextMenus.vue'
-import { radioStationStore } from '@/stores/radioStationStore'
+import ContextMenu from '@/components/ui/context-menu/ContextMenu.vue'
 
 const HotkeyListener = defineAsyncComponent(() => import('@/components/utils/HotkeyListener.vue'))
-const LoginForm = defineAsyncComponentWithLoadingState(() => import('@/components/auth/LoginForm.vue'))
-const MainWrapper = defineAsyncComponentWithLoadingState(() => import('@/components/layout/main-wrapper/index.vue'))
-const SupportKoel = defineAsyncComponentWithLoadingState(() => import('@/components/meta/SupportKoel.vue'))
+const LoginForm = defineAsyncComponent(() => import('@/components/auth/LoginForm.vue'))
+const MainWrapper = defineAsyncComponent(() => import('@/components/layout/main-wrapper/index.vue'))
+const SupportKoel = defineAsyncComponent(() => import('@/components/meta/SupportKoel.vue'))
 const DropZone = defineAsyncComponent(() => import('@/components/ui/upload/DropZone.vue'))
-const AcceptInvitation = defineAsyncComponentWithLoadingState(() => import('@/components/invitation/AcceptInvitation.vue'))
-const ResetPasswordForm = defineAsyncComponentWithLoadingState(() => import('@/components/auth/ResetPasswordForm.vue'))
+const AcceptInvitation = defineAsyncComponent(() => import('@/components/invitation/AcceptInvitation.vue'))
+const ResetPasswordForm = defineAsyncComponent(() => import('@/components/auth/ResetPasswordForm.vue'))
+const Embed = defineAsyncComponent(() => import('@/components/embed/widget/EmbedWidget.vue'))
 
 const overlay = ref<InstanceType<typeof Overlay>>()
 const dialog = ref<InstanceType<typeof DialogBox>>()
@@ -67,36 +71,43 @@ const toaster = ref<InstanceType<typeof MessageToaster>>()
 const currentStreamable = ref<Streamable>()
 const showDropZone = ref(false)
 
-const layout = ref<'main' | 'auth' | 'invitation' | 'reset-password'>()
-
-const { isCurrentScreen, getCurrentScreen, resolveRoute } = useRouter()
+const { isCurrentScreen, resolveRoute, triggerNotFound } = useRouter()
 const online = useOnline()
 
 const authenticated = ref(false)
 const initialized = ref(false)
+const currentRoute = ref<Route | null>(null)
 
 const triggerAppInitialization = () => (authenticated.value = true)
-
-const onUserLoggedIn = () => {
-  layout.value = 'main'
-  triggerAppInitialization()
-}
+const onInitError = () => (authenticated.value = false)
 
 const onInitSuccess = async () => {
-  authenticated.value = false
   initialized.value = true
 
-  // call resolveRoute() after init() so that the onResolve hooks can use the stores
-  await resolveRoute()
-  layout.value = 'main'
+  if (currentRoute.value && currentRoute.value.meta?.guard?.() === false) {
+    triggerNotFound()
+  }
 }
 
-const onInitError = () => {
-  authenticated.value = false
-  layout.value = 'auth'
-}
+const layout = computed(() => {
+  if (currentRoute.value?.meta?.layout) {
+    return currentRoute.value.meta.layout
+  }
 
-onMounted(async () => {
+  return authenticated.value ? 'default' : 'login'
+})
+
+onMounted(() => {
+  // Add an ugly mac/non-mac class for OS-targeting styles.
+  document.documentElement.classList.add(navigator.userAgent.includes('Mac') ? 'mac' : 'non-mac')
+
+  currentRoute.value = resolveRoute()
+
+  if (currentRoute.value?.meta?.public) {
+    // If the route is public (embed, login, reset password etc.) we don't need to check for authentication.
+    return
+  }
+
   // If the user is authenticated via a proxy, we have the token in the window object.
   // Simply forward it to the authService and continue with the normal flow.
   if (window.AUTH_TOKEN) {
@@ -106,25 +117,7 @@ onMounted(async () => {
   // The app has just been initialized, check if we can get the user data with an already existing token
   if (authService.hasApiToken()) {
     triggerAppInitialization()
-    return
   }
-
-  await resolveRoute()
-
-  switch (getCurrentScreen()) {
-    case 'Invitation.Accept':
-      layout.value = 'invitation'
-      break
-    case 'Password.Reset':
-      layout.value = 'reset-password'
-      break
-    default:
-      layout.value = 'auth'
-  }
-
-  // Add an ugly mac/non-mac class for OS-targeting styles.
-  // I'm crying inside.
-  document.documentElement.classList.add(navigator.userAgent.includes('Mac') ? 'mac' : 'non-mac')
 })
 
 const onDragOver = (e: DragEvent) => {
@@ -155,12 +148,17 @@ provide(OverlayKey, overlay)
 provide(DialogBoxKey, dialog)
 provide(MessageToasterKey, toaster)
 provide(CurrentStreamableKey, currentStreamable)
+
+provide(ContextMenuKey, shallowRef({
+  component: null,
+  position: { top: 0, left: 0 },
+}))
 </script>
 
 <style lang="postcss">
 #dragGhost {
-  @apply inline-block py-2 pl-8 pr-3 rounded-md text-base font-sans fixed top-0 left-0 z-[-1] bg-k-success
-  text-k-text-primary no-hover:hidden;
+  @apply inline-block py-2 pl-8 pr-3 rounded-md text-base fixed top-0 left-0 z-[-1] bg-k-bg
+  text-k-fg no-hover:hidden;
 }
 
 #copyArea {

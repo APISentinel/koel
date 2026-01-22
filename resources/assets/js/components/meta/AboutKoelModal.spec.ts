@@ -25,16 +25,26 @@ describe('aboutKoelModal.vue', () => {
     expect(renderComponent().html()).toMatchSnapshot()
   })
 
+  it('renders with custom branding', async () => {
+    commonStore.state.current_version = 'v0.0.0'
+    commonStore.state.latest_version = 'v0.0.0'
+
+    await h.withCustomBranding({
+      name: 'Little Bird',
+      logo: 'http://localhost/storage/logo.svg',
+      cover: 'http://localhost/storage/cover.jpg',
+    }, () => expect(renderComponent().html()).toMatchSnapshot())
+  })
+
   it('shows new version', () => {
     commonStore.state.current_version = 'v1.0.0'
     commonStore.state.latest_version = 'v1.0.1'
-    h.beAdmin()
+    h.actingAsAdmin()
     renderComponent().getByTestId('new-version-about')
   })
 
-  it('shows demo notation', async () => {
+  it('shows demo notation', async () => h.withDemoMode(async () => {
     const getMock = h.mock(http, 'get').mockResolvedValue([])
-    window.IS_DEMO = true
 
     renderComponent()
 
@@ -42,7 +52,5 @@ describe('aboutKoelModal.vue', () => {
       screen.getByTestId('demo-credits')
       expect(getMock).toHaveBeenCalledWith('demo/credits')
     })
-
-    window.IS_DEMO = false
-  })
+  }))
 })

@@ -3,12 +3,12 @@
     <form
       v-show="!showingForgotPasswordForm"
       :class="{ error: failed }"
-      class="w-full sm:w-[288px] sm:border duration-500 p-7 rounded-xl border-transparent sm:bg-white/10 space-y-3"
+      class="w-full sm:w-[288px] sm:border duration-500 p-7 rounded-xl border-transparent sm:bg-k-fg-10 space-y-3"
       data-testid="login-form"
       @submit.prevent="handleSubmit"
     >
       <div class="text-center mb-8">
-        <img alt="Koel's logo" class="inline-block" src="@/../img/logo.svg" width="156">
+        <img alt="Logo" class="inline-block" :src="logo" width="156">
       </div>
 
       <FormRow>
@@ -20,11 +20,11 @@
       </FormRow>
 
       <FormRow>
-        <Btn data-testid="submit" type="submit">Log In</Btn>
+        <Btn class="w-full" data-testid="submit" type="submit">Log In</Btn>
       </FormRow>
 
       <FormRow v-if="canResetPassword">
-        <a class="text-right text-[.95rem] text-k-text-secondary" role="button" @click.prevent="showForgotPasswordForm">
+        <a class="text-right text-[.95rem] text-k-fg-70" role="button" @click.prevent="showForgotPasswordForm">
           Forgot password?
         </a>
       </FormRow>
@@ -44,6 +44,7 @@ import { authService } from '@/services/authService'
 import { logger } from '@/utils/logger'
 import { useMessageToaster } from '@/composables/useMessageToaster'
 import { useForm } from '@/composables/useForm'
+import { useBranding } from '@/composables/useBranding'
 
 import Btn from '@/components/ui/form/Btn.vue'
 import PasswordField from '@/components/ui/form/PasswordField.vue'
@@ -55,6 +56,7 @@ import FormRow from '@/components/ui/form/FormRow.vue'
 const emit = defineEmits<{ (e: 'loggedin'): void }>()
 
 const { toastWarning, toastError } = useMessageToaster()
+const { logo } = useBranding()
 
 const demoAccount = window.DEMO_ACCOUNT || {
   email: 'demo@koel.dev',

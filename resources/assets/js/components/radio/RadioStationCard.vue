@@ -1,7 +1,7 @@
 <template>
   <article
     :class="layout"
-    class="relative group flex max-w-full md:max-w-[256px] border p-5 rounded-lg flex-col gap-5 transition border-color duration-200"
+    class="group relative flex max-w-full md:max-w-[256px] border p-5 rounded-lg flex-col gap-5"
     data-testid="radio-station-card"
     tabindex="0"
     @dblclick="onDblClick"
@@ -11,12 +11,12 @@
 
     <footer class="flex flex-1 flex-col gap-1.5 overflow-hidden">
       <div class="name flex flex-col gap-2 whitespace-nowrap">
-        <h3 class="font-medium">
+        <h3 class="font-medium text-k-fg">
           {{ station.name }}
           <FavoriteButton v-if="station.favorite" :favorite="station.favorite" class="ml-1" @toggle="toggleFavorite" />
         </h3>
       </div>
-      <div class="meta text-[0.9rem] flex gap-1.5 opacity-70 hover:opacity-100">
+      <div class="meta text-[0.95rem] flex gap-1.5 text-k-fg-70">
         <p class="line-clamp-3" :title="station.description">{{ station.description }}</p>
       </div>
     </footer>
@@ -25,19 +25,23 @@
 
 <script lang="ts" setup>
 import { toRefs } from 'vue'
+import { defineAsyncComponent } from '@/utils/helpers'
+import { useContextMenu } from '@/composables/useContextMenu'
 
 import { radioStationStore } from '@/stores/radioStationStore'
 import { playback } from '@/services/playbackManager'
-import { eventBus } from '@/utils/eventBus'
 
 import RadioStationThumbnail from '@/components/radio/RadioStationThumbnail.vue'
-import FavoriteButton from '@/components/ui/FavoriteButton.vue'
 
 const props = withDefaults(defineProps<{ layout?: CardLayout, station: RadioStation }>(), {
   layout: 'full',
 })
+const FavoriteButton = defineAsyncComponent(() => import('@/components/ui/FavoriteButton.vue'))
+const ContextMenu = defineAsyncComponent(() => import('@/components/radio/RadioStationContextMenu.vue'))
 
 const { layout, station } = toRefs(props)
+
+const { openContextMenu } = useContextMenu()
 
 const togglePlay = () => {
   if (station.value.playback_state === 'Playing') {
@@ -51,14 +55,16 @@ const onDblClick = () => togglePlay()
 
 const onThumbnailClicked = () => togglePlay()
 
-const onContextMenu = (e: MouseEvent) => eventBus.emit('RADIO_STATION_CONTEXT_MENU_REQUESTED', e, station.value)
+const onContextMenu = (event: MouseEvent) => openContextMenu<'RADIO_STATION'>(ContextMenu, event, {
+  station: station.value,
+})
 
 const toggleFavorite = () => radioStationStore.toggleFavorite(station.value)
 </script>
 
 <style lang="postcss" scoped>
 article {
-  @apply bg-k-bg-secondary border border-k-border hover:border-white/15;
+  @apply bg-k-fg-5 border border-k-fg-10 hover:border-white/15;
 
   &.full {
     :deep(.play-icon) {
@@ -68,17 +74,17 @@ article {
 
   .name {
     a {
-      @apply overflow-hidden text-ellipsis text-k-text-primary;
+      @apply overflow-hidden text-ellipsis text-k-fg;
 
       &:is(:hover, :active, :focus) {
-        @apply text-k-accent;
+        @apply text-k-highlight;
       }
     }
   }
 
   &:focus,
   &:focus-within {
-    @apply ring-1 ring-k-accent;
+    @apply ring-1 ring-k-highlight;
   }
 
   &.compact {
@@ -95,7 +101,7 @@ article {
       & + a,
       & + button {
         &::before {
-          @apply mr-0.5 content-['•'] text-k-text-secondary;
+          @apply mr-0.5 content-['•'];
         }
       }
 

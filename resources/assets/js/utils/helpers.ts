@@ -93,7 +93,7 @@ export const openPopup = (url: string, name: string, width: number, height: numb
  * This is handy for certain cases, for example Last.fm connect/disconnect.
  */
 export const forceReloadWindow = (): void => {
-  if (process.env.NODE_ENV === 'test') {
+  if (window.RUNNING_UNIT_TESTS) {
     return
   }
 
@@ -136,5 +136,6 @@ export const defineAsyncComponent = (loader: AsyncComponentLoader, loadingCompon
   return baseDefineAsyncComponent({
     loader,
     loadingComponent: loadingComponent || LoadingComponent,
+
   })
 }

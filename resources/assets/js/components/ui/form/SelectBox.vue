@@ -1,5 +1,5 @@
 <template>
-  <label class="relative bg-white text-gray-800 rounded">
+  <div class="relative bg-k-bg-input text-k-fg-input rounded border border-k-fg-10">
     <select
       ref="el"
       v-model="value"
@@ -12,20 +12,14 @@
       class="text-k-highlight pointer-events-none absolute top-1/3 right-[8px]"
       size="sm"
     />
-  </label>
+  </div>
 </template>
 
 <script lang="ts" setup>
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { faCaretDown } from '@fortawesome/free-solid-svg-icons'
 
-const props = withDefaults(defineProps<{ modelValue?: any }>(), { modelValue: null })
-const emit = defineEmits<{ (e: 'update:modelValue', value: any): void }>()
-
-const value = computed({
-  get: () => props.modelValue,
-  set: value => emit('update:modelValue', value),
-})
+const value = defineModel<any>()
 
 const el = ref<HTMLInputElement>()
 

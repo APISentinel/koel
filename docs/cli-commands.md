@@ -53,6 +53,21 @@ php artisan koel:admin:change-password [<email>]
 |---------|--------------------------------------------------------------|
 | `email` | The user's email. If empty, will get the default admin user. |
 
+### `koel:admin:set-user-role`
+
+Set a user's role.
+
+#### Usage
+
+```bash
+php artisan koel:admin:set-user-role <email>
+```
+
+#### Arguments
+| Name    | Description       |
+|---------|-------------------|
+| `email` | The user's email. |
+
 ### `koel:clean-up-temp-files`
 
 Remove temporary files older than a certain age. Examples of temporary files include temporarily downloaded files,
@@ -90,6 +105,21 @@ This command needs to be run only once. Subsequent scans will take care of this 
 php artisan koel:extract-folders
 ```
 
+### `koel:fetch-artwork`
+
+Attempt to fetch missing album covers and artist images from the available sources (Spotify, Last.fm, and MusicBrainz).
+You'll need to configure and enable the corresponding [3rd-party integrations](./service-integrations.md) for this
+command to work.
+
+Note that Koel will only make a maximum of one request per second to avoid hitting the rate limits (if any) and
+risking getting blocked by the services.
+
+#### Usage
+
+```bash
+php artisan koel:fetch-artwork
+```
+
 ### `koel:init`
 
 Install or upgrade Koel.
@@ -100,11 +130,18 @@ Usage
 php artisan koel:init [options]
 ```
 
+
 #### Options
 | Name             | Description                     |
 |------------------|---------------------------------|
 | `--no-assets`    | Do not compile front-end assets |
 | `--no-scheduler` | Do not install scheduler        |
+
+:::tip
+Instead of running `php artisan koel:init` directly, you should run `composer koel:init`, which calls this command
+under the hood after installing dependencies. To pass options to `php artisan koel:init`, use argument forwarding, e.g.,
+`composer koel:init -- --no-assets`.
+:::
 
 ### `koel:license:activate`
 

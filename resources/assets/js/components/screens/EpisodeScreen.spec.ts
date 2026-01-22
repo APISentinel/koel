@@ -1,8 +1,11 @@
 import { screen, waitFor } from '@testing-library/vue'
-import { describe, expect, it } from 'vitest'
+import type { Mock } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createHarness } from '@/__tests__/TestHarness'
 import { playableStore as episodeStore } from '@/stores/playableStore'
-import { eventBus } from '@/utils/eventBus'
+import { useContextMenu } from '@/composables/useContextMenu'
+import { assertOpenContextMenu } from '@/__tests__/assertions'
+import PlayableContextMenu from '@/components/playable/PlayableContextMenu.vue'
 import Component from './EpisodeScreen.vue'
 
 describe('episodeScreen.vue', () => {
@@ -13,14 +16,7 @@ describe('episodeScreen.vue', () => {
 
     const resolveEpisodeMock = h.mock(episodeStore, 'resolve').mockResolvedValue(episode)
 
-    await h.router.activateRoute({
-      path: `episodes/${episode.id}`,
-      screen: 'Episode',
-    }, {
-      id: episode.id,
-    })
-
-    const rendered = h.render(Component)
+    const rendered = h.visit(`episodes/${episode.id}`).render(Component)
 
     await waitFor(() => {
       expect(resolveEpisodeMock).toHaveBeenCalledWith(episode.id)
@@ -49,12 +45,13 @@ describe('episodeScreen.vue', () => {
   })
 
   it('requests Actions menu', async () => {
+    vi.mock('@/composables/useContextMenu')
+    const { openContextMenu } = useContextMenu()
     const { episode } = await renderComponent()
-    const emitMock = h.mock(eventBus, 'emit')
 
     await waitFor(async () => {
       await h.user.click(screen.getByRole('button', { name: 'More Actions' }))
-      expect(emitMock).toHaveBeenCalledWith('PLAYABLE_CONTEXT_MENU_REQUESTED', expect.any(MouseEvent), episode)
+      await assertOpenContextMenu(openContextMenu as Mock, PlayableContextMenu, { playables: [episode] })
     })
   })
 })
